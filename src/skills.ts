@@ -58,9 +58,11 @@ export function mitigatedDamage(
   amount: number,
   type: DamageType,
 ) {
+  if (type === "poison" && player.species === "mummy" && player.skills.e > 0) return 0;
   return (
     Math.max(0, amount) *
     (1 - player.armor) *
+    (1 - (player.empowerTime > 0 ? player.empowerArmor : 0)) *
     (1 -
       (["slashing", "piercing"].includes(type) ? scaleResistance(player) : 0))
   );

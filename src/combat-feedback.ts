@@ -1,3 +1,4 @@
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as T from "three";
 import { heightAt, type Point } from "./logic";
 export type AttackSignal = {
@@ -53,11 +54,14 @@ export class CombatFeedback {
         opacity: 0.8,
         side: T.DoubleSide,
         depthWrite: false,
+        depthTest: false,
         polygonOffset: true,
         polygonOffsetFactor: -2,
       });
+    group.renderOrder = 31;
     const start = Math.atan2(-heading.z, heading.x) - 1.15;
-    const rings = team === "player" && phase === "impact" ? 3 : 1;
+    const rings = team === "player" && phase === "impact" ? 3 : 1,
+      parts: T.BufferGeometry[] = [];
     for (let i = 0; i < rings; i++) {
       const r = (shape === "line" ? 0.65 : radius) * (1 - i * 0.18),
         geo = new T.RingGeometry(
@@ -67,34 +71,37 @@ export class CombatFeedback {
           1,
           shape === "circle" || shape === "line" ? 0 : start,
           shape === "circle" || shape === "line" ? Math.PI * 2 : 2.3,
-        ),
-        mesh = new T.Mesh(geo, material());
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.y = 0.08 + i * 0.012;
-      group.add(mesh);
+        );
+      geo.rotateX(-Math.PI / 2);
+      geo.translate(0, 0.08 + i * 0.012, 0);
+      parts.push(geo);
     }
     if (shape === "line")
       for (let i = 0; i < 5; i++) {
-        const mesh = new T.Mesh(
-          new T.BoxGeometry(0.18, 0.025, radius / 8),
-          material(),
-        );
-        mesh.position.set(
+        const geo = new T.BoxGeometry(0.18, 0.025, radius / 8);
+        geo.rotateY(Math.atan2(heading.x, heading.z));
+        geo.translate(
           (heading.x * radius * (i + 0.5)) / 5,
           0.09,
           (heading.z * radius * (i + 0.5)) / 5,
         );
-        mesh.rotation.y = Math.atan2(heading.x, heading.z);
-        group.add(mesh);
+        parts.push(geo);
       }
+    const merged = mergeGeometries(parts)!;
+    for (const part of parts) part.dispose();
+    const mesh = new T.Mesh(merged, material());
+    mesh.renderOrder = 31;
+    group.add(mesh);
     if (phase === "windup") {
       const icon = new T.Sprite(
         new T.SpriteMaterial({
           map: this.warning,
           transparent: true,
           depthWrite: false,
+          depthTest: false,
         }),
       );
+      icon.renderOrder = 32;
       icon.position.y = height + 0.35;
       icon.scale.set(0.5, 0.5, 1);
       group.add(icon);

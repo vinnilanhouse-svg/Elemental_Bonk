@@ -1,11 +1,22 @@
 import { normalize } from "./logic";
 export class Input {
+  active = false;
   keys = new Set<string>();
   stick = { x: 0, z: 0 };
   onAction: (key: string) => void = () => {};
   constructor() {
     window.addEventListener("keydown", (e) => {
       const k = e.key.toLowerCase();
+      if (k === "escape") {
+        if (!e.repeat) this.onAction(k);
+        e.preventDefault();
+        return;
+      }
+      if (
+        !this.active ||
+        (e.target as HTMLElement)?.closest?.("input,select,textarea")
+      )
+        return;
       if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k))
         e.preventDefault();
       if (!e.repeat) this.onAction(k);

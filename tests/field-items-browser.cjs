@@ -15,6 +15,7 @@ const assert = require("node:assert/strict");
       viewport: { width: 1440, height: 900 },
     }),
     errors = [];
+  page.setDefaultTimeout(60000);
   page.on("pageerror", (e) => errors.push(e.message));
   try {
     await page.goto("http://127.0.0.1:5173/?test", {
@@ -152,7 +153,10 @@ const assert = require("node:assert/strict");
       reset();
       put("relic");
       withRoll(0.12, () => g.update(0.05));
+      const warned = g.ambushes.length > 0 && g.enemies.length === 0;
+      step(1.25);
       out.ambush =
+        warned &&
         g.enemies.length >= 1 &&
         g.enemies.length <= 6 &&
         g.enemies.every((e) => distance(g.player, e) > 6) &&
@@ -245,7 +249,7 @@ const assert = require("node:assert/strict");
       ),
       false,
     );
-    const status = await page.locator(".field-status").boundingBox(),
+    const status = await page.locator(".notification-area").boundingBox(),
       joy = await page.locator("#joystick").boundingBox();
     assert.ok(status.y + status.height < joy.y);
     assert.ok(await page.locator("#joystick").isVisible());

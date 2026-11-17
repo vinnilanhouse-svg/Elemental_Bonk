@@ -1,0 +1,47 @@
+[
+  {
+    "suite": "browser",
+    "exitCode": 0,
+    "durationMs": 33795
+  },
+  {
+    "suite": "stability-browser",
+    "exitCode": 0,
+    "durationMs": 22443
+  },
+  {
+    "suite": "species-browser",
+    "exitCode": 0,
+    "durationMs": 17295
+  },
+  {
+    "suite": "enemies-browser",
+    "exitCode": 0,
+    "durationMs": 67694
+  },
+  {
+    "suite": "map-browser",
+    "exitCode": 0,
+    "durationMs": 21778
+  },
+  {
+    "suite": "experience-browser",
+    "exitCode": 0,
+    "durationMs": 54985
+  },
+  {
+    "suite": "performance-browser",
+    "exitCode": 0,
+    "durationMs": 36871
+  },
+  {
+    "suite": "new-species-browser",
+    "exitCode": 0,
+    "durationMs": 33671
+  },
+  {
+    "suite": "field-items-browser",
+    "exitCode": 0,
+    "durationMs": 23781
+  }
+]

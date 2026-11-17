@@ -16,7 +16,7 @@ const assert = require("node:assert/strict");
       errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("http://127.0.0.1:5173/?test");
-    await page.getByRole("button", { name: /INICIAR MISSÃO/ }).click();
+    await page.getByRole("button", { name: /JOGAR/ }).click();
     assert.equal(await page.locator(".skill").count(), 1);
     assert.equal(await page.locator(".skill.locked").count(), 0);
     const result = await page.evaluate(() => {

@@ -6,6 +6,7 @@ import {
   type Player,
 } from "./logic";
 import { zoneAt } from "./zones";
+import { resourceName } from "./new-species";
 
 export const FIELD_ITEMS = {
   heal: {
@@ -166,8 +167,8 @@ export function applyFieldItem(
     );
     p.essence += gain;
     return {
-      title: "Essência recuperada",
-      text: `+${Number(gain.toFixed(1))} de Essência`,
+      title: `${resourceName(p.species)} recuperada`,
+      text: `+${Number(gain.toFixed(1))} de ${resourceName(p.species)}`,
       tone: "good",
     };
   }
@@ -201,7 +202,7 @@ export function applyFieldItem(
     },
     blessing: {
       title: "Bênção da mata",
-      text: "Vida e Essência restauradas parcialmente. Proteção por 15s.",
+      text: `Vida e ${resourceName(p.species)} restauradas parcialmente. Proteção por 15s.`,
       tone: "good",
     },
     calm: {

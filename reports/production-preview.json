@@ -1,0 +1,15 @@
+{
+  "localPreview": "http://127.0.0.1:4173",
+  "debugHookAbsent": true,
+  "saciInitialSkills": 2,
+  "pauseWorks": true,
+  "terrain": {
+    "position": {
+      "x": -30,
+      "z": -18,
+      "height": 2
+    },
+    "walkable": true
+  },
+  "errors": []
+}

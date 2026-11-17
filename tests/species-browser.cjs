@@ -30,9 +30,8 @@ const assert = require("node:assert/strict");
     await page.screenshot({ path: "/tmp/monstrao-saci-menu.png" });
     await page.locator('[data-action="start"]').click();
     assert.equal(await page.locator(".skill").count(), 2);
-    assert.ok(
-      await page.getByText("Rajada Travessa", { exact: true }).isVisible(),
-    );
+    assert.match(await page.locator('.basic-attack').getAttribute('aria-label'),/Rajada Travessa/);
+    await page.locator('.basic-attack').focus();assert.ok(await page.getByText('Rajada Travessa',{exact:true}).isVisible());
     assert.equal(await page.locator('[data-action^="skill:"]').count(), 0);
     const checks = await page.evaluate(async () => {
       const g = window.__game,
@@ -197,9 +196,7 @@ const assert = require("node:assert/strict");
       g.onUI();
     });
     await page.locator('[data-action="upgrade:saci-trap"]').click();
-    assert.ok(
-      await page.getByText("Armadilha Natural", { exact: true }).isVisible(),
-    );
+    assert.ok(await page.locator('#skill-4').isVisible());assert.match(await page.locator('#skill-4').getAttribute('aria-label'),/Armadilha Natural/);
     assert.equal(
       await page.getByText("Dia do Saci", { exact: true }).count(),
       0,
@@ -210,7 +207,7 @@ const assert = require("node:assert/strict");
       g.menu();
       g.selectSpecies("saci");
     });
-    await page.locator('[data-action="agent:gorgon"]').click();
+    await page.locator('#agent-select').selectOption('gorgon');
     assert.ok(await page.locator('[data-action="start"]').isVisible());
     await page.screenshot({ path: "/tmp/monstrao-species-mobile-menu.png" });
     await page.locator('[data-action="start"]').click();

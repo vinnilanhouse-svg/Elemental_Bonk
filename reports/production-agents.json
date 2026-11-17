@@ -1,0 +1,37 @@
+{
+  "localPreview": "http://127.0.0.1:4173",
+  "debugHookAbsent": true,
+  "agents": [
+    {
+      "id": "curupira",
+      "basic": "Golpe Primata · ataque automático",
+      "initialIcons": 2,
+      "pause": true
+    },
+    {
+      "id": "vampire",
+      "basic": "Garras Noturnas · ataque automático",
+      "initialIcons": 2,
+      "pause": true
+    },
+    {
+      "id": "mummy",
+      "basic": "Chicote de Faixas · ataque automático",
+      "initialIcons": 2,
+      "pause": true
+    },
+    {
+      "id": "construct",
+      "basic": "Punho Mecânico · ataque automático",
+      "initialIcons": 2,
+      "pause": true
+    },
+    {
+      "id": "fairy",
+      "basic": "Disparo Elemental · ataque automático",
+      "initialIcons": 2,
+      "pause": true
+    }
+  ],
+  "errors": []
+}

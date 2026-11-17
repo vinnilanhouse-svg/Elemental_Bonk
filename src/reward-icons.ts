@@ -1,4 +1,11 @@
 const paths: Record<string, string> = {
+  fire: '<path d="M12 2c3 5 8 8 8 13a8 8 0 0 1-16 0c0-4 2-7 5-10v7c3-1 4-4 3-10Z"/>',
+  blood: '<path d="M12 2S4 11 4 16a8 8 0 0 0 16 0c0-5-8-14-8-14Z"/><path d="M8 16c0 3 2 4 4 4"/>',
+  bandage: '<path d="m3 8 5-5 13 13-5 5Zm2 2 5-5m-2 8 5-5m-2 8 5-5m-2 8 5-5"/>',
+  module: '<path d="M5 5h14v14H5ZM9 9h6v6H9ZM8 1v4m8-4v4M8 19v4m8-4v4M1 8h4m-4 8h4m14-8h4m-4 8h4"/>',
+  element: '<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/>',
+  bat: '<path d="m2 5 7 5 1-6 2 3 2-3 1 6 7-5-2 12-5-2-3 6-3-6-5 2Z"/>',
+  mist: '<path d="M3 7h18M5 12h14M2 17h20M9 3h6m-8 18h10"/>',
   serpents:
     '<path d="M4 18c-3-7 8-3 5-10S17 1 18 6s-6 4-5 8 7 7 8 1M6 18h12M15 5h.1M19 5l3-1"/>',
   stone:
@@ -34,6 +41,11 @@ const paths: Record<string, string> = {
 };
 export function rewardIcon(id: string) {
   const alias: Record<string, string> = {
+    "curupira-q": "fire", "curupira-e": "attack", "curupira-trap": "fire", "curupira-r": "xp", "curupira- ": "xp",
+    "vampire-q": "blood", "vampire-e": "faro", "vampire-mobility": "bat", "vampire-trap": "range", "vampire-mist": "mist", "vampire-borrow": "armor", "vampire-r": "blood", "vampire- ": "furia",
+    "mummy-q": "bandage", "mummy-e": "serpents", "mummy-mobility": "esquiva", "mummy-r": "stone", "mummy- ": "xp",
+    "construct-q": "module", "construct-e": "armor", "construct-defense": "recovery", "construct-mobility": "element", "construct-r": "fire", "construct- ": "module",
+    "fairy-q": "element", "fairy-e": "sopro", "fairy-defense": "regen", "fairy-r": "element", "fairy- ": "armor",
     "gorgon-poison": "serpents",
     "gorgon-gaze": "faro",
     "gorgon-medusa": "stone",

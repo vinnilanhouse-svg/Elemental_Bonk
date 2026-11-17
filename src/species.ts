@@ -1,6 +1,7 @@
 import { SKILLS, type Skill } from "./config";
-export type Species = "wolf" | "gorgon" | "saci";
-export type DamageType = "slashing" | "piercing" | "blunt" | "arcane";
+import { NEW_CHARACTERS, NEW_SKILLS, type NewSpecies } from "./new-species";
+export type Species = "wolf" | "gorgon" | "saci" | NewSpecies;
+export type DamageType = "slashing" | "piercing" | "blunt" | "arcane" | "poison";
 export type SkillDef = {
   name: string;
   cost: number;
@@ -9,8 +10,11 @@ export type SkillDef = {
   damage: number;
   range: number;
   description?: string;
+  healthCost?: number;
+  apex?: boolean;
 };
 export const CHARACTERS = {
+  ...NEW_CHARACTERS,
   wolf: {
     name: "Lobisomem",
     tag: "LICANTROPO",
@@ -31,7 +35,7 @@ export const CHARACTERS = {
     basicIcon: "serpents",
     hp: 110,
     speed: 4.5,
-    damage: 18,
+    damage: 20,
     range: 2.8,
     interval: 0.8,
     description: "Veneno, defesa e petrificação.",
@@ -56,6 +60,7 @@ export const SPECIES_SKILLS: Record<
   Species,
   Partial<Record<Skill, SkillDef>>
 > = {
+  ...NEW_SKILLS,
   wolf: SKILLS,
   gorgon: {
     q: {
@@ -169,3 +174,4 @@ export const SPECIES_SKILLS: Record<
 export function skillFor(player: { species: Species }, key: Skill) {
   return SPECIES_SKILLS[player.species][key];
 }
+export const SPECIES_ORDER: Species[] = ["gorgon", "wolf", "saci", "curupira", "vampire", "mummy", "construct", "fairy"];

@@ -146,7 +146,7 @@ function iconTexture(kind: FieldItemKind) {
     }
   return texture(c);
 }
-function labelTexture(kind: FieldItemKind, caption?: string) {
+function labelTexture(kind: FieldItemKind, caption?: string, name: string = FIELD_ITEMS[kind].name) {
   const c = document.createElement("canvas");
   c.width = 256;
   c.height = 48;
@@ -159,14 +159,20 @@ function labelTexture(kind: FieldItemKind, caption?: string) {
   g.textBaseline = "middle";
   g.fillStyle = "#fff1cf";
   g.font = "bold 15px monospace";
-  g.fillText(FIELD_ITEMS[kind].name, 128, 17);
+  g.fillText(name, 128, 17);
   g.fillStyle = FIELD_ITEMS[kind].color;
   g.font = "11px monospace";
   g.fillText(
     caption ||
-      (kind === "relic"
-        ? "? EFEITO SURPRESA · ENCOSTE"
-        : "ENCOSTE PARA COLETAR"),
+      {
+        heal: "VIDA +30% · ENCOSTE",
+        essence: "ESSÊNCIA +40% · ENCOSTE",
+        power: "DANO +30% · 15s",
+        haste: "MOVIMENTO +25% · 15s",
+        ward: "DANO RECEBIDO −30% · 15s",
+        magnet: "COLETA XP +75% · 15s",
+        relic: "RISCO DE EMBOSCADA · ENCOSTE",
+      }[kind],
     128,
     35,
   );
@@ -188,6 +194,7 @@ export class FieldItems {
   private textures: Record<FieldItemKind, T.Texture>;
   private labels: Record<FieldItemKind, T.Texture>;
   private fullLabels: Record<"heal" | "essence", T.Texture>;
+  private energyLabels: { ready: T.Texture; full: T.Texture };
   constructor(
     private scene: T.Scene,
     private obstacles: Obstacle[],
@@ -200,6 +207,10 @@ export class FieldItems {
     this.fullLabels = {
       heal: labelTexture("heal", "VIDA CHEIA · FICA NO MAPA"),
       essence: labelTexture("essence", "ESSÊNCIA CHEIA · FICA NO MAPA"),
+    };
+    this.energyLabels = {
+      ready: labelTexture("essence", "ENERGIA +40% · ENCOSTE", "Recarga de Energia"),
+      full: labelTexture("essence", "ENERGIA CHEIA · FICA NO MAPA", "Recarga de Energia"),
     };
     this.labels = Object.fromEntries(
       kinds.map((k) => [k, labelTexture(k)]),
@@ -284,7 +295,9 @@ export class FieldItems {
       item.icon.position.y = 0.85 + Math.sin(item.age * 2.6 + item.x) * 0.1;
       item.label.visible = distance(player, item) < 4;
       item.label.material.map =
-        item.kind === "heal" && player.maxHp - player.hp < 0.5
+        item.kind === "essence" && player.species === "construct"
+          ? player.maxEssence - player.essence < .5 ? this.energyLabels.full : this.energyLabels.ready
+          : item.kind === "heal" && player.maxHp - player.hp < 0.5
           ? this.fullLabels.heal
           : item.kind === "essence" && player.maxEssence - player.essence < 0.5
             ? this.fullLabels.essence

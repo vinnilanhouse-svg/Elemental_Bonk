@@ -1,0 +1,283 @@
+{
+  "checks": {
+    "curupiraBasic": true,
+    "vampireBasic": true,
+    "mummyBasic": true,
+    "constructBasic": true,
+    "fairyBasic": true,
+    "fireball": true,
+    "primateFury": true,
+    "fireAura": true,
+    "selva": true,
+    "drainNoOverkill": true,
+    "hypnosis": true,
+    "bloodReserve": true,
+    "bat": true,
+    "tracking": true,
+    "mist": true,
+    "borrow": true,
+    "bloodServants": true,
+    "pauseNewEffects": true,
+    "servantsExpire": true,
+    "bandagePull": true,
+    "poisonBreath": true,
+    "spiderSafe": true,
+    "plagues": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "moduleGun": true,
+    "armorModule": true,
+    "repair": true,
+    "overload": true,
+    "reconstructionWarning": true,
+    "coreProtected": true,
+    "reconstruct": true,
+    "elements": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "pixieDust": true,
+    "noWastedInterrupt": true,
+    "interrupt": true,
+    "noCombatMeditation": true,
+    "meditation": true,
+    "spring": true,
+    "summer": true,
+    "autumn": true,
+    "winter": true,
+    "seasonsEnd": true,
+    "menuClears": true,
+    "energyLabel": true,
+    "learnedOnly": true
+  },
+  "menuLayouts": [
+    {
+      "species": "curupira",
+      "width": 1440,
+      "height": 900,
+      "play": {
+        "x": 500,
+        "y": 630.84375,
+        "width": 440,
+        "height": 65
+      }
+    },
+    {
+      "species": "vampire",
+      "width": 1440,
+      "height": 900,
+      "play": {
+        "x": 500,
+        "y": 630.84375,
+        "width": 440,
+        "height": 65
+      }
+    },
+    {
+      "species": "mummy",
+      "width": 1440,
+      "height": 900,
+      "play": {
+        "x": 500,
+        "y": 641.84375,
+        "width": 440,
+        "height": 65
+      }
+    },
+    {
+      "species": "construct",
+      "width": 1440,
+      "height": 900,
+      "play": {
+        "x": 500,
+        "y": 641.84375,
+        "width": 440,
+        "height": 65
+      }
+    },
+    {
+      "species": "fairy",
+      "width": 1440,
+      "height": 900,
+      "play": {
+        "x": 500,
+        "y": 647.765625,
+        "width": 440,
+        "height": 65
+      }
+    },
+    {
+      "species": "curupira",
+      "width": 390,
+      "height": 844,
+      "play": {
+        "x": 25,
+        "y": 571.875,
+        "width": 340,
+        "height": 58
+      }
+    },
+    {
+      "species": "vampire",
+      "width": 390,
+      "height": 844,
+      "play": {
+        "x": 25,
+        "y": 571.875,
+        "width": 340,
+        "height": 58
+      }
+    },
+    {
+      "species": "mummy",
+      "width": 390,
+      "height": 844,
+      "play": {
+        "x": 25,
+        "y": 578.875,
+        "width": 340,
+        "height": 58
+      }
+    },
+    {
+      "species": "construct",
+      "width": 390,
+      "height": 844,
+      "play": {
+        "x": 25,
+        "y": 578.875,
+        "width": 340,
+        "height": 58
+      }
+    },
+    {
+      "species": "fairy",
+      "width": 390,
+      "height": 844,
+      "play": {
+        "x": 25,
+        "y": 594.875,
+        "width": 340,
+        "height": 58
+      }
+    },
+    {
+      "species": "curupira",
+      "width": 320,
+      "height": 568,
+      "play": {
+        "x": 14,
+        "y": 376.96875,
+        "width": 292,
+        "height": 58
+      }
+    },
+    {
+      "species": "vampire",
+      "width": 320,
+      "height": 568,
+      "play": {
+        "x": 14,
+        "y": 376.96875,
+        "width": 292,
+        "height": 58
+      }
+    },
+    {
+      "species": "mummy",
+      "width": 320,
+      "height": 568,
+      "play": {
+        "x": 14,
+        "y": 382.96875,
+        "width": 292,
+        "height": 58
+      }
+    },
+    {
+      "species": "construct",
+      "width": 320,
+      "height": 568,
+      "play": {
+        "x": 14,
+        "y": 382.96875,
+        "width": 292,
+        "height": 58
+      }
+    },
+    {
+      "species": "fairy",
+      "width": 320,
+      "height": 568,
+      "play": {
+        "x": 14,
+        "y": 399.546875,
+        "width": 292,
+        "height": 58
+      }
+    },
+    {
+      "species": "curupira",
+      "width": 740,
+      "height": 390,
+      "play": {
+        "x": 690,
+        "y": 190.703125,
+        "width": 187.71875,
+        "height": 46
+      }
+    },
+    {
+      "species": "vampire",
+      "width": 740,
+      "height": 390,
+      "play": {
+        "x": 690,
+        "y": 190.703125,
+        "width": 187.71875,
+        "height": 46
+      }
+    },
+    {
+      "species": "mummy",
+      "width": 740,
+      "height": 390,
+      "play": {
+        "x": 690,
+        "y": 190.703125,
+        "width": 187.71875,
+        "height": 46
+      }
+    },
+    {
+      "species": "construct",
+      "width": 740,
+      "height": 390,
+      "play": {
+        "x": 690,
+        "y": 190.703125,
+        "width": 187.71875,
+        "height": 46
+      }
+    },
+    {
+      "species": "fairy",
+      "width": 740,
+      "height": 390,
+      "play": {
+        "x": 690,
+        "y": 190.703125,
+        "width": 187.71875,
+        "height": 46
+      }
+    }
+  ],
+  "errors": []
+}

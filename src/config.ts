@@ -50,7 +50,9 @@ export const SKILLS = {
     range: 0,
   },
 };
-export type Skill = "q" | "e" | "r" | " " | "trap" | "mobility" | "defense";
+export const SKILL_KEYS = ["q", "e", "r", " ", "trap", "mobility", "defense", "mist", "borrow"] as const;
+export type Skill = typeof SKILL_KEYS[number];
+export const skillRecord = (value = 0) => Object.fromEntries(SKILL_KEYS.map(k => [k, value])) as Record<Skill, number>;
 // XP carried by one fragment per defeated creature, independent of wave time.
 export const ENEMY_XP = [5, 8, 16, 100] as const;
 export const LOOT = {
@@ -67,3 +69,22 @@ export const LOOT = {
     { id: "masterwork", name: "Obra-prima", weight: 7, multiplier: 1.35 },
   ],
 };
+
+export const ENEMY_BALANCE = {
+  hp: [38, 25, 100, 2100],
+  windup: [0.24, 0.36, 0.8, 1.3],
+  interval: [1.4, 2.2, 2.5, 4],
+  spawnNear: 13,
+  spawnFar: 19,
+  hpRampDuration: 800,
+  projectileSpeed: 5,
+  speed: [2.1, 1.55, 1.2, 0.8],
+  meleeDamage: [10, 0, 25, 35],
+  projectileDamage: [0, 12, 0, 18],
+  spawnStart: 2.5,
+  spawnMin: 0.4,
+  spawnAcceleration: 210,
+  maxProjectiles: 100,
+  rootDuration: 1.6,
+  rootImmunity: 3,
+} as const;

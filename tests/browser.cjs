@@ -25,7 +25,7 @@ const assert = require("node:assert/strict");
         .isVisible(),
     );
     await page.getByRole("button", { name: "VOLTAR →", exact: true }).click();
-    await page.getByRole("button", { name: /INICIAR MISSÃO/ }).click();
+    await page.getByRole("button", { name: /JOGAR/ }).click();
     assert.equal(await page.evaluate(() => window.__game.phase), "playing");
     assert.equal(await page.locator(".skill").count(), 1);
     assert.equal(await page.locator(".skill.locked").count(), 0);

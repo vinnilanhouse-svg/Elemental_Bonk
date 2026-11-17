@@ -1,4 +1,7 @@
+import { skillDetails } from "./skill-details";
 import { skillFor, type Species } from "./species";
+import { NEW_SKILLS } from "./new-species";
+import { apexUnlocked } from "./new-species-rules";
 import { CFG, LOOT, type Skill } from "./config";
 import { evasionChance, scaleResistance } from "./skills";
 import type { Player } from "./logic";
@@ -179,6 +182,15 @@ export const REWARDS: Reward[] = [
     skill: "q",
     amount: 0.2,
   },
+  ...Object.entries(NEW_SKILLS).flatMap(([species, skills]) =>
+    Object.entries(skills).filter(([key]) => key !== " ").map(([key, def]) => ({
+      species: species as Species,
+      id: `${species}-${key}`,
+      title: def.name,
+      max: 5,
+      skill: key as Skill,
+      amount: 0.2,
+    }))),
   {
     species: "saci",
     id: "saci-blink",
@@ -267,6 +279,8 @@ function weighted<T extends { weight: number }>(
   return entries[entries.length - 1];
 }
 function powerCap(p: Player, key: Skill) {
+  if (p.species === "vampire" && key === "e") return 1;
+  if (p.species === "fairy" && key === "q") return .6;
   if (p.species === "gorgon") {
     if (key === "e" || key === "r")
       return (
@@ -285,6 +299,7 @@ export function validRewards(levels: Record<string, number>, p: Player) {
     (r) =>
       !r.fallback &&
       (!r.species || r.species === p.species) &&
+      (!r.skill || !skillFor(p, r.skill)?.apex || p.skills[r.skill] > 0 || apexUnlocked(p)) &&
       (hasInstinct ||
         !["cooldown", "essence", "regen"].includes(r.stat || "")) &&
       (levels[r.id] || 0) < r.max &&
@@ -369,42 +384,43 @@ export function makeChoice(
       text = `+${fmt(value)} m de alcance do ataque básico automático.`;
       break;
   }
+  if (p.species === "construct") text = text.replaceAll("Essência", "Energia");
   if (reward.skill) {
-    const key = reward.skill;
-    const effects: Partial<Record<Skill, string>> = {
-      q: "dano, alcance e empurrão do cone",
-      e: "dano do pulso, duração e coleta durante o faro",
-      r: "dano do uivo, bônus de combate e duração da fúria",
-    };
-    const def = skillFor(p, key)!;
-    text = `${unlock ? "Desbloqueia" : "Aprimora"} ${def.name} automático. ${def.description || effects[key] || ""} ${p.species === "wolf" ? `+${fmt(value * 100)}% à potência.` : ""}`;
-    if (p.species !== "wolf") {
-      const power = 1 + p.skillPower[key] + value;
-      if (def.damage)
-        text += ` Dano ${fmt(def.damage * power)}${key === "r" && p.species === "saci" ? "/s" : ""}.`;
-      if (key === "q" && p.species === "gorgon")
-        text += ` Veneno: ${fmt(8 * power)} de dano/s por ${def.duration}s.`;
-      if (["e", "r", "trap", "mobility"].includes(key) && def.duration)
-        text += ` Duração ${fmt(def.duration * power)}s${["trap"].includes(key) || p.species === "gorgon" ? " (controle de chefes reduzido)" : ""}.`;
-      if (key === "defense")
-        text += ` Reduz ${fmt((1 - Math.max(0.15, 0.35 - (p.skillPower.defense + value) * 0.1)) * 100)}% do golpe; recarga ${def.cooldown}s.`;
-    }
-    if (key === " " && p.species === "wolf") {
-      const next = {
+    const key = reward.skill,
+      next = {
         ...p,
-        skills: { ...p.skills, " ": p.skills[" "] + 1 },
-        skillPower: { ...p.skillPower, " ": p.skillPower[" "] + value },
+        skills: { ...p.skills, [key]: p.skills[key] + 1 },
+        skillPower: {
+          ...p.skillPower,
+          [key]: round(p.skillPower[key] + value),
+        },
       };
-      text = `${unlock ? "Desbloqueia" : "Aprimora"} esquiva passiva: ${fmt(evasionChance(p) * 100)}% → ${fmt(evasionChance(next) * 100)}% de chance de evitar um golpe. Não move o personagem.`;
-    }
+    const before = skillDetails(p, key),
+      after = skillDetails(next, key);
+    text = `${after.effect} ${unlock ? "Novo: " : `Atual: ${before.numbers}. Após: `}${after.numbers}.`;
+  } else {
+    const current: Record<string, number> = {
+      hp: p.maxHp,
+      damage: p.damage,
+      attack: p.attack,
+      speed: p.speed,
+      collect: p.collect,
+      essence: p.maxEssence,
+      regen: p.essenceRegen,
+      armor: p.armor,
+      recovery: p.recovery,
+      xp: p.xpBonus,
+      range: p.range,
+    };
+    if (reward.stat && current[reward.stat] !== undefined)
+      text += ` ${fmt(current[reward.stat])} → ${fmt(current[reward.stat] + value)}.`;
+    if (reward.stat === "cooldown")
+      text += ` Multiplicador de recarga ${fmt(p.cooldown)} → ${fmt(p.cooldown / (1 + value))}.`;
   }
-  if (reward.skill === " " && p.species === "gorgon")
-    text = `Aprimora Ssssssscamas: ${fmt(scaleResistance(p) * 100)}% → ${fmt(Math.min(0.55, 0.2 + (p.skillPower[" "] + value) * 0.2) * 100)}% de redução de corte e perfuração.`;
-  if (reward.skill === " " && p.species === "saci")
-    text = `Aprimora Me Pegue se Puder: imobilizações expiram ${fmt(2 + p.skillPower[" "] + value)} vezes mais rápido.`;
 
   return {
     ...reward,
+    title: p.species === "construct" ? reward.title.replace("Frasco ancestral", "Bateria de reserva").replace("Catalisador de Essência", "Regulador de Energia").replace("Reserva espiritual", "Reserva de Energia") : reward.title,
     rarity,
     quality,
     value,

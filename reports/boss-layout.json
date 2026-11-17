@@ -1,0 +1,36 @@
+[
+  {
+    "width": 320,
+    "height": 568,
+    "boss": {
+      "x": 194,
+      "y": 262,
+      "width": 114,
+      "height": 36.28125
+    },
+    "map": {
+      "x": 194,
+      "y": 117,
+      "width": 114,
+      "height": 133
+    },
+    "timer": "CHEFE"
+  },
+  {
+    "width": 740,
+    "height": 390,
+    "boss": {
+      "x": 632,
+      "y": 228,
+      "width": 96,
+      "height": 48.421875
+    },
+    "map": {
+      "x": 632,
+      "y": 113,
+      "width": 96,
+      "height": 115
+    },
+    "timer": "CHEFE"
+  }
+]

@@ -1,0 +1,73 @@
+{
+  "checks": {
+    "noBlockedCast": true,
+    "visibleCast": true,
+    "targetStable": true,
+    "impactOnce": true,
+    "source": true,
+    "interval": true,
+    "textBound": true,
+    "ambushWarned": true,
+    "ambushDelayed": true,
+    "realPause": true,
+    "stackedLevels": true,
+    "frozenBuffs": true,
+    "restart": true,
+    "fullTimer": true,
+    "victory": true,
+    "defeat": true
+  },
+  "layouts": [
+    {
+      "width": 1440,
+      "height": 900,
+      "start": {
+        "x": 500,
+        "y": 630.84375,
+        "width": 440,
+        "height": 65
+      }
+    },
+    {
+      "width": 1280,
+      "height": 600,
+      "start": {
+        "x": 420,
+        "y": 423.1875,
+        "width": 440,
+        "height": 56
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "start": {
+        "x": 25,
+        "y": 571.875,
+        "width": 340,
+        "height": 58
+      }
+    },
+    {
+      "width": 320,
+      "height": 568,
+      "start": {
+        "x": 14,
+        "y": 376.96875,
+        "width": 292,
+        "height": 58
+      }
+    },
+    {
+      "width": 740,
+      "height": 390,
+      "start": {
+        "x": 690,
+        "y": 190.703125,
+        "width": 187.71875,
+        "height": 46
+      }
+    }
+  ],
+  "errors": []
+}

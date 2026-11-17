@@ -1,0 +1,23 @@
+{
+  "wolf": {
+    "frames": 36,
+    "boundedCrops": true,
+    "largestTorsoCorrectionPixels": 21,
+    "unchangedFootPivots": true,
+    "sourceRasterUnchanged": true
+  },
+  "gorgon": {
+    "frames": 36,
+    "boundedCrops": true,
+    "largestTorsoCorrectionPixels": 20.5,
+    "unchangedFootPivots": true,
+    "sourceRasterUnchanged": true
+  },
+  "saci": {
+    "frames": 36,
+    "boundedCrops": true,
+    "largestTorsoCorrectionPixels": 30.5,
+    "unchangedFootPivots": true,
+    "sourceRasterUnchanged": true
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "construct": {
+    "source": "/workspace/generated_images/exec-8a7ea7ef-aac2-497b-ad42-ea2460f638e5.png",
+    "atlas": "public/agents/construct.png",
+    "frames": 36,
+    "size": [
+      1254,
+      1254
+    ],
+    "bounded": true,
+    "pngCopiedUnchanged": true
+  },
+  "curupira": {
+    "source": "/workspace/generated_images/exec-cc50b26c-1cc8-4867-97b9-e1d7563a0393.png",
+    "atlas": "public/agents/curupira.png",
+    "frames": 36,
+    "size": [
+      1254,
+      1254
+    ],
+    "bounded": true,
+    "pngCopiedUnchanged": true
+  },
+  "vampire": {
+    "source": "/workspace/generated_images/exec-2e189c6d-676f-420a-b7c6-b532876d14f9.png",
+    "atlas": "public/agents/vampire.png",
+    "frames": 36,
+    "size": [
+      1254,
+      1254
+    ],
+    "bounded": true,
+    "pngCopiedUnchanged": true
+  },
+  "mummy": {
+    "source": "/workspace/generated_images/exec-4bb7fc9b-a645-4df1-aedb-e4d7487dc695.png",
+    "atlas": "public/agents/mummy.png",
+    "frames": 36,
+    "size": [
+      1254,
+      1254
+    ],
+    "bounded": true,
+    "pngCopiedUnchanged": true
+  },
+  "fairy": {
+    "source": "/workspace/generated_images/exec-9f243e10-11aa-435c-a89b-c12d72c201e8.png",
+    "atlas": "public/agents/fairy.png",
+    "frames": 36,
+    "size": [
+      1254,
+      1254
+    ],
+    "bounded": true,
+    "pngCopiedUnchanged": true
+  }
+}

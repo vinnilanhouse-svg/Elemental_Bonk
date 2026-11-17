@@ -18,7 +18,7 @@ const assert = require("node:assert/strict");
     await p.goto("http://127.0.0.1:5173/?test", {
       waitUntil: "domcontentloaded",
     });
-    await p.getByRole("button", { name: /INICIAR MISSÃO/ }).click();
+    await p.getByRole("button", { name: /JOGAR/ }).click();
     const result = await p.evaluate(async () => {
       const g = window.__game,
         { heightAt, canMove } = await import("/src/logic.ts"),
@@ -101,8 +101,8 @@ const assert = require("node:assert/strict");
       r.bossInFinalRegion = g.boss?.zoneId === 5;
       g.start();
       g.spawnClock = 999;
-      g.player.x = -19;
-      g.player.z = 16;
+      g.player.x = -41;
+      g.player.z = 39;
       g.time = 480;
       g.update(0.05);
       r.bossSpawnsWithAgentInRuins = Boolean(
@@ -122,10 +122,10 @@ const assert = require("node:assert/strict");
     assert.ok(await p.locator("#region-minimap").isVisible());
     await p.screenshot({ path: "/tmp/monstrao-five-regions-start.png" });
     for (const [id, x, z] of [
-      [2, -19, -17],
-      [3, 20, -16],
-      [4, 20, 17],
-      [5, -19, 17],
+      [2, -41, -35],
+      [3, 42, -34],
+      [4, 42, 38],
+      [5, -41, 40],
     ]) {
       await p.evaluate(
         ({ x, z }) => {
@@ -135,7 +135,7 @@ const assert = require("node:assert/strict");
           g.player.x = x;
           g.player.z = z;
           g.update(0.01);
-          g.camera.follow(x, 0, z, 0, true);
+          g.camera.follow(x, g.hero.position.y, z, 0, true);
           g.onUI();
         },
         { x, z },

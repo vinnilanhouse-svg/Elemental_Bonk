@@ -1,0 +1,95 @@
+{
+  "frameRates": [
+    {
+      "hz": 30,
+      "z": 13.999999999999986,
+      "time": 2.0000000000000027,
+      "cooldown": 5.000000000000007,
+      "buff": 8.000000000000007
+    },
+    {
+      "hz": 60,
+      "z": 14.000000000000028,
+      "time": 1.9999999999999978,
+      "cooldown": 5.000000000000007,
+      "buff": 7.999999999999901
+    },
+    {
+      "hz": 144,
+      "z": 13.999999999999876,
+      "time": 1.999999999999994,
+      "cooldown": 4.999999999999943,
+      "buff": 7.999999999999943
+    }
+  ],
+  "environment": "Headless Chromium with SwiftShader software GPU; viewport 960x640; not physical-device FPS.",
+  "simulationMedianMs": 1.5,
+  "simulationP95Ms": 10.899999998509884,
+  "frameMedianMs": 216.6999999999971,
+  "frameP95Ms": 400,
+  "peaks": {
+    "enemies": 48,
+    "projectiles": 17,
+    "effects": 37,
+    "text": 24
+  },
+  "baseline": {
+    "geometries": 10,
+    "textures": 34,
+    "children": 348,
+    "programs": 12
+  },
+  "repeats": [
+    {
+      "geometries": 10,
+      "textures": 34,
+      "children": 348,
+      "programs": 12
+    },
+    {
+      "geometries": 10,
+      "textures": 34,
+      "children": 348,
+      "programs": 12
+    },
+    {
+      "geometries": 10,
+      "textures": 34,
+      "children": 348,
+      "programs": 12
+    },
+    {
+      "geometries": 10,
+      "textures": 34,
+      "children": 348,
+      "programs": 12
+    },
+    {
+      "geometries": 10,
+      "textures": 34,
+      "children": 348,
+      "programs": 12
+    },
+    {
+      "geometries": 10,
+      "textures": 34,
+      "children": 348,
+      "programs": 12
+    },
+    {
+      "geometries": 10,
+      "textures": 34,
+      "children": 348,
+      "programs": 12
+    },
+    {
+      "geometries": 10,
+      "textures": 34,
+      "children": 348,
+      "programs": 12
+    }
+  ],
+  "drawCalls": 242,
+  "triangles": 84804,
+  "errors": []
+}

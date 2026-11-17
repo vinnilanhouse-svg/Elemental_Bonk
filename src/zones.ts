@@ -22,7 +22,7 @@ export const ZONES = [
     damage: 1.2,
     speed: 1.04,
     xp: 1.25,
-    anchor: { x: -19, z: -17 },
+    anchor: { x: -41, z: -35 },
   },
   {
     id: 3,
@@ -34,7 +34,7 @@ export const ZONES = [
     damage: 1.45,
     speed: 1.08,
     xp: 1.5,
-    anchor: { x: 20, z: -16 },
+    anchor: { x: 42, z: -34 },
   },
   {
     id: 4,
@@ -46,7 +46,7 @@ export const ZONES = [
     damage: 1.75,
     speed: 1.12,
     xp: 1.8,
-    anchor: { x: 20, z: 17 },
+    anchor: { x: 42, z: 38 },
   },
   {
     id: 5,
@@ -58,12 +58,11 @@ export const ZONES = [
     damage: 2.15,
     speed: 1.16,
     xp: 2.2,
-    anchor: { x: -19, z: 17 },
+    anchor: { x: -41, z: 40 },
   },
 ] as const;
 export function zoneAt(x: number, z: number) {
-  if (Math.hypot(x, z) <= 10 || (x > -12 && x < 1 && z > -14 && z < -5))
-    return ZONES[0];
+  if ((x / 28) ** 2 + ((z - 4) / 34) ** 2 <= 1) return ZONES[0];
   return x < 0 ? (z < 0 ? ZONES[1] : ZONES[4]) : z < 0 ? ZONES[2] : ZONES[3];
 }
 export function zoneStats(kind: number, p: Point) {
@@ -75,4 +74,13 @@ export function zoneStats(kind: number, p: Point) {
     speed: zone.speed,
     xp: zone.xp,
   };
+}
+
+export function approachingZone(x: number, z: number, heading: Point) {
+  const current = zoneAt(x, z);
+  for (const ahead of [4, 7, 10]) {
+    const next = zoneAt(x + heading.x * ahead, z + heading.z * ahead);
+    if (next.id > current.id) return next;
+  }
+  return null;
 }

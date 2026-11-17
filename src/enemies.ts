@@ -17,12 +17,15 @@ export type Enemy = Point & {
   hit: number;
   mesh: T.Sprite;
   dead: boolean;
+  revived?: boolean;
   poisonTime: number;
   poisonDps: number;
   petrified: number;
   rooted: number;
   disoriented: number;
   attacks: number;
+  dotSum: number;
+  dotClock: number;
   anim: EnemyAnimator;
   facing: Point;
   action: number;

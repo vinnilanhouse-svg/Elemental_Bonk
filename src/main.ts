@@ -2,7 +2,7 @@ import "./style.css";
 import { UI } from "./ui";
 import { Game } from "./game";
 import { loadEnemyAssets } from "./enemy-animation";
-import { loadAgentAssets } from "./agent-assets";
+import { AGENT_META, loadAgentAssets } from "./agent-assets";
 import { loadSceneryAssets } from "./scenery-sprites";
 const root = document.querySelector<HTMLDivElement>("#interface")!;
 async function start() {
@@ -13,7 +13,8 @@ async function start() {
     agents = 0;
   const progress = () => {
     if (failed) return;
-    root.innerHTML = `<div class="modal-shade"><section class="modal"><div class="eyebrow">G.M.S. / PREPARAÇÃO</div><h2>Carregando a Mata Viva</h2><p>Preparando cenário e criaturas · ${enemies + scenery + agents} / 9</p><progress value="${enemies + scenery + agents}" max="9" aria-label="Carregando sprites"></progress></section></div>`;
+    const total = 6 + Object.keys(AGENT_META).length;
+    root.innerHTML = `<div class="modal-shade"><section class="modal"><div class="eyebrow">G.M.S. / PREPARAÇÃO</div><h2>Carregando a Mata Viva</h2><p>Preparando cenário e criaturas · ${enemies + scenery + agents} / ${total}</p><progress value="${enemies + scenery + agents}" max="${total}" aria-label="Carregando sprites"></progress></section></div>`;
   };
   try {
     progress();

@@ -8,6 +8,9 @@ export function fadeOpacity(current: number, hidden: boolean, dt: number) {
 export class SceneryOcclusion {
   props: FadingProp[] = [];
   private hero?: T.Sprite;
+  get hidden() {
+    return this.props.some((p) => p.occluded);
+  }
   private ray = new T.Raycaster();
   private right = new T.Vector3();
   private up = new T.Vector3();

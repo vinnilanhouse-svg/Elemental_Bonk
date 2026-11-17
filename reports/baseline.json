@@ -1,0 +1,37 @@
+{
+  "scenario": "Seed 2718; scripted circle radius 3 around spawn, automatic upgrade choices; 60 simulated seconds, not a human balance review.",
+  "results": {
+    "wolf": {
+      "time": 30.41666666666622,
+      "level": 3,
+      "kills": 7,
+      "hp": 0,
+      "firstLevel": 13.800000000000265,
+      "damageHits": 7,
+      "phase": "defeat",
+      "simulationMs": 637.2999999970198
+    },
+    "gorgon": {
+      "time": 15.450000000000347,
+      "level": 1,
+      "kills": 1,
+      "hp": 0,
+      "firstLevel": null,
+      "damageHits": 7,
+      "phase": "defeat",
+      "simulationMs": 232
+    },
+    "saci": {
+      "time": 13.933333333333605,
+      "level": 1,
+      "kills": 2,
+      "hp": 0,
+      "firstLevel": null,
+      "damageHits": 5,
+      "phase": "defeat",
+      "simulationMs": 176.80000000074506
+    },
+    "southBoundarySeconds": 1.0833333333333344
+  },
+  "errors": []
+}

@@ -1,5 +1,7 @@
+import { WORLD, inRiver, terrainHeight, terrainSlope } from "./terrain";
 import { CHARACTERS, type Species } from "./species";
-import { CFG, type Skill } from "./config";
+import { CFG, skillRecord } from "./config";
+import type { Element } from "./new-species";
 export type Point = { x: number; z: number };
 export type Obstacle = Point & { r: number };
 export const normalize = (x: number, z: number): Point => {
@@ -8,14 +10,13 @@ export const normalize = (x: number, z: number): Point => {
 };
 export const distance = (a: Point, b: Point) =>
   Math.hypot(a.x - b.x, a.z - b.z);
-export function heightAt(x: number, z: number) {
-  return x < -13 && z < -5 ? Math.min(2, (-x - 13) * 0.3, (-z - 5) * 0.35) : 0;
-}
+export const heightAt = terrainHeight;
 export function canMove(p: Point, obs: Obstacle[], radius = 0.45) {
   return (
-    Math.abs(p.x) < 28 &&
-    Math.abs(p.z) < 26 &&
-    !(p.x > 9 && p.x < 12 && Math.abs(p.z) > 2.3) &&
+    Math.abs(p.x) < WORLD.limitX - radius &&
+    Math.abs(p.z) < WORLD.limitZ - radius &&
+    !inRiver(p.x, p.z, radius * 0.6) &&
+    terrainSlope(p.x, p.z) < 1.4 &&
     obs.every((o) => distance(p, o) > radius + o.r)
   );
 }
@@ -28,9 +29,15 @@ export function move(
 ) {
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.2));
   for (let i = 0; i < steps; i++) {
-    if (canMove({ x: p.x + dx / steps, z: p.z }, obs, radius))
+    if (
+      canMove({ x: p.x + dx / steps, z: p.z }, obs, radius) &&
+      Math.abs(heightAt(p.x + dx / steps, p.z) - heightAt(p.x, p.z)) < 0.32
+    )
       p.x += dx / steps;
-    if (canMove({ x: p.x, z: p.z + dz / steps }, obs, radius))
+    if (
+      canMove({ x: p.x, z: p.z + dz / steps }, obs, radius) &&
+      Math.abs(heightAt(p.x, p.z + dz / steps) - heightAt(p.x, p.z)) < 0.32
+    )
       p.z += dz / steps;
   }
   return p;
@@ -52,11 +59,12 @@ export const inCone = (
   );
 };
 export const xpFor = (level: number) => 12 + level * 7;
-export function freshPlayer(species: Species = "wolf") {
+export function freshPlayer(species: Species = "wolf", element: Element = "air") {
   const c: { hp: number; speed: number; damage: number; range: number } =
     CHARACTERS[species];
   return {
     species,
+    element,
     x: 0,
     z: 4,
     hp: c.hp,
@@ -77,25 +85,14 @@ export function freshPlayer(species: Species = "wolf") {
     essenceRegen: CFG.regen,
     xpBonus: 0,
     immobilized: 0,
+    rootImmunity: 0,
     mobilityTime: 0,
-    skills: {
-      q: 0,
-      e: 0,
-      r: 0,
-      " ": species !== "wolf" ? 1 : 0,
-      trap: 0,
-      mobility: 0,
-      defense: 0,
-    } as Record<Skill, number>,
-    skillPower: {
-      q: 0,
-      e: 0,
-      r: 0,
-      " ": 0,
-      trap: 0,
-      mobility: 0,
-      defense: 0,
-    } as Record<Skill, number>,
+    empowerTime: 0,
+    empowerDamage: 0,
+    empowerArmor: 0,
+    empowerAttack: 0,
+    skills: { ...skillRecord(), " ": species !== "wolf" ? 1 : 0 },
+    skillPower: skillRecord(),
   };
 }
 

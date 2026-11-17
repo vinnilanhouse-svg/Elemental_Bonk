@@ -22,7 +22,7 @@ const assert = require("node:assert/strict");
       if (/\/enemies\/.*\.png/.test(r.url())) loaded.push(r.status());
     });
     await page.goto("http://127.0.0.1:5173/?test");
-    await page.getByRole("button", { name: /INICIAR MISSÃO/ }).click();
+    await page.getByRole("button", { name: /JOGAR/ }).click();
     assert.deepEqual(loaded.sort(), [200, 200, 200, 200]);
     const checks = await page.evaluate(() => {
       const g = window.__game;
@@ -215,7 +215,7 @@ const assert = require("node:assert/strict");
     );
     await failure.unroute("**/enemies/boss.png");
     await failure.getByRole("button", { name: "TENTAR NOVAMENTE" }).click();
-    await failure.getByRole("button", { name: /INICIAR MISSÃO/ }).waitFor();
+    await failure.getByRole("button", { name: /JOGAR/ }).waitFor();
     await failure.close();
     console.log(
       "Missing atlas: persistent error message and successful reload retry.",
