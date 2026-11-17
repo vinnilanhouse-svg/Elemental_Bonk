@@ -1457,3 +1457,109 @@ progress {
     letter-spacing: 2px;
   }
 }
+
+/* Field pickups announce their effect separately from navigation messages. */
+.field-status {
+  position: absolute;
+  top: 205px;
+  left: 35px;
+  width: 300px;
+  max-width: calc(100vw - 190px);
+}
+#field-notice {
+  background: #173527ed;
+  border: 1px solid #b6d28a88;
+  border-left: 3px solid #c6dc98;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 15px #10241955;
+}
+#field-notice[hidden] {
+  display: none;
+}
+#field-notice strong {
+  display: block;
+  font-size: 14px;
+  color: #ecedbd;
+  margin-bottom: 5px;
+}
+#field-notice span {
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #c3d3b9;
+}
+#field-notice.notice-danger {
+  background: #402826ed;
+  border-color: #e1a272;
+}
+#field-notice.notice-danger strong {
+  color: #ffd29b;
+}
+#field-notice.notice-danger span {
+  color: #efd6c0;
+}
+#field-buffs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.field-buff {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c5d59a66;
+  padding: 6px 8px;
+  background: #193225ed;
+  pointer-events: auto;
+}
+.field-buff svg {
+  width: 17px;
+  height: 17px;
+  color: #e4dba9;
+}
+.field-buff b {
+  font-size: 10px;
+  font-weight: 500;
+}
+.field-buff small {
+  font: 10px monospace;
+  color: #e9d597;
+  min-width: 20px;
+}
+@media (max-width: 760px) {
+  .field-status {
+    top: 182px;
+    left: 14px;
+    width: 250px;
+    max-width: calc(100vw - 128px);
+  }
+  #field-notice {
+    padding: 8px 9px;
+  }
+  #field-notice strong {
+    font-size: 12px;
+  }
+  #field-notice span {
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  .field-buff {
+    padding: 5px 6px;
+    gap: 4px;
+  }
+  .field-buff svg {
+    width: 14px;
+    height: 14px;
+  }
+  .field-buff b,
+  .field-buff small {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 760px) {
+  #toast {
+    top: 290px;
+  }
+}

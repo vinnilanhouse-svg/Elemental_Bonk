@@ -1,3 +1,14 @@
+import { FieldItems } from "./field-items";
+import {
+  applyFieldItem,
+  ambushSpots,
+  fieldDamageMultiplier,
+  fieldSpeedMultiplier,
+  fieldProtectionMultiplier,
+  fieldMagnetMultiplier,
+  type FieldItemKind,
+  type FieldNotice,
+} from "./field-loot";
 import * as T from "three";
 import { CombatFeedback } from "./combat-feedback";
 import { stableDirection } from "./motion";
@@ -53,6 +64,7 @@ export class Game {
   world: World;
   camera = new Camera();
   feedback: CombatFeedback;
+  fieldItems: FieldItems;
   input = new Input();
   audio = new Audio();
   save = load();
@@ -140,6 +152,7 @@ export class Game {
   ) {
     this.world = new World(sceneryAssets);
     this.feedback = new CombatFeedback(this.world.scene);
+    this.fieldItems = new FieldItems(this.world.scene, this.world.obstacles);
     this.renderer = new T.WebGLRenderer({
       canvas,
       antialias: false,
@@ -203,6 +216,7 @@ export class Game {
     this.renderer.shadowMap.enabled = this.save.quality === "alta";
   }
   clear() {
+    this.fieldItems.clear();
     this.gaze = undefined;
     this.feedback.clear();
     this.world.occlusion.reset();
@@ -235,6 +249,7 @@ export class Game {
     this.player = freshPlayer(this.selectedSpecies);
     this.anim.texture.dispose();
     this.anim = new Animator(this.hero, this.agentAssets[this.selectedSpecies]);
+    this.fieldItems.seed(this.player);
     this.time = 0;
     this.currentRegion = 1;
     this.spawnClock = 1;
@@ -762,7 +777,7 @@ export class Game {
   }
   damage(e: Enemy, amount: number, flash = true) {
     if (e.dead) return;
-    e.hp -= amount;
+    e.hp -= amount * fieldDamageMultiplier(this.fieldItems.buffs);
     if (flash) {
       e.hit = 0.16;
       this.effect(e.x, e.z, 0xf1da9b, 0.45, 0.15, 1);
@@ -782,19 +797,106 @@ export class Game {
         this.world.scene.remove(old.mesh);
         old.anim.dispose();
       }
-      const mesh = xpFragment(e.xpValue, this.xpLabel);
-      mesh.position.set(e.x, heightAt(e.x, e.z) + 0.28, e.z);
-      this.world.scene.add(mesh);
-      this.effect(e.x, e.z, 0xd5ed97, 0.4, 0.35, 1);
-      this.gems.push({ x: e.x, z: e.z, value: e.xpValue, age: 0, mesh });
-      if (this.gems.length > 240) {
-        const old = this.gems.shift()!;
-        this.gems[0].value += old.value;
-        this.world.scene.remove(old.mesh);
-        this.disposeTransient(old.mesh);
-      }
+      this.dropXP(e, e.xpValue);
       if (e.kind === 3) this.finish(true);
     }
+  }
+  private dropXP(p: Point, value: number) {
+    const mesh = xpFragment(value, this.xpLabel);
+    mesh.position.set(p.x, heightAt(p.x, p.z) + 0.28, p.z);
+    this.world.scene.add(mesh);
+    this.effect(p.x, p.z, 0xd5ed97, 0.4, 0.35, 1);
+    this.gems.push({ x: p.x, z: p.z, value, age: 0, mesh });
+    if (this.gems.length > 240) {
+      const old = this.gems.shift()!;
+      this.gems[0].value += old.value;
+      this.world.scene.remove(old.mesh);
+      this.disposeTransient(old.mesh);
+    }
+  }
+  private collectFieldItem(kind: FieldItemKind): FieldNotice | null {
+    const result = applyFieldItem(this.player, this.fieldItems.buffs, kind);
+    if (!result) return null;
+    const region = zoneAt(this.player.x, this.player.z);
+    if (result.event === "ambush") {
+      const points = ambushSpots(
+        this.player,
+        this.world.obstacles,
+        Math.max(
+          0,
+          Math.min(
+            5 + region.id,
+            CFG.maxEnemies - this.enemies.filter((e) => !e.dead).length,
+          ),
+        ),
+      );
+      let summoned = 0;
+      for (const point of points) {
+        const before = this.id;
+        this.spawn(
+          region.id >= 3 && Math.random() < 0.2
+            ? 2
+            : Math.random() < 0.25
+              ? 1
+              : 0,
+          point,
+        );
+        if (this.id > before) {
+          summoned++;
+          this.effect(point.x, point.z, 0xc7a1da, 0.9, 0.8, 1);
+        }
+      }
+      if (summoned)
+        result.text = `A relíquia atraiu ${summoned} criaturas. Prepare-se!`;
+      else {
+        result.event = "cache";
+        result.title = "Chuva de fragmentos";
+        result.tone = "good";
+        result.text =
+          "A relíquia revelou uma reserva de XP. Aproxime-se para coletar.";
+      }
+    }
+    if (result.event === "cache")
+      for (let i = 0; i < 5; i++) {
+        const point = { ...this.player },
+          angle = (i * Math.PI * 2) / 5;
+        move(
+          point,
+          Math.cos(angle) * 2,
+          Math.sin(angle) * 2,
+          this.world.obstacles,
+        );
+        this.dropXP(point, 4 + region.id * 2);
+      }
+    if (result.event === "calm") {
+      for (const enemy of this.enemies)
+        if (!enemy.dead && distance(enemy, this.player) <= 12) {
+          enemy.slow = Math.max(enemy.slow, 5);
+          enemy.windup = 0;
+          enemy.action = 0;
+          enemy.cooldown = Math.max(enemy.cooldown, 5);
+          this.feedback.cancelSource(enemy);
+        }
+      this.fieldItems.buffs.haste = Math.max(this.fieldItems.buffs.haste, 15);
+      result.text =
+        "Criaturas próximas desaceleradas e ataques interrompidos por 5s. Agilidade por 15s.";
+    }
+    this.effect(
+      this.player.x,
+      this.player.z,
+      result.tone === "danger" ? 0xc7a1da : 0xbce5a0,
+      0.8,
+      0.6,
+      2,
+    );
+    this.audio.play("collect");
+    return result;
+  }
+  collectionRadius() {
+    return (
+      pickupRadius(this.player, this.scent > 0) *
+      fieldMagnetMultiplier(this.fieldItems.buffs)
+    );
   }
   hurt(amount: number, type: DamageType = "blunt") {
     if (this.invuln > 0) return false;
@@ -820,7 +922,9 @@ export class Game {
     }
     this.player.hp = Math.max(
       0,
-      this.player.hp - mitigatedDamage(this.player, amount, type),
+      this.player.hp -
+        mitigatedDamage(this.player, amount, type) *
+          fieldProtectionMultiplier(this.fieldItems.buffs),
     );
     this.invuln = CFG.invulnerability;
     this.hurtTime = 0.18;
@@ -921,6 +1025,7 @@ export class Game {
   update(dt: number) {
     if (this.phase !== "playing") return;
     const p = this.player;
+    this.fieldItems.beginFrame(dt);
     const attackImpact =
       this.attackAnim > this.attackDuration * 0.5 &&
       Math.max(0, this.attackAnim - dt) <= this.attackDuration * 0.5;
@@ -945,9 +1050,12 @@ export class Game {
     const dir = this.input.direction();
     if (dir.x || dir.z) {
       if (this.attackAnim <= 0) this.heading = dir;
-      const speed = movementSpeed(p, zoneAt(p.x, p.z).id === 4);
+      const speed =
+        movementSpeed(p, zoneAt(p.x, p.z).id === 4) *
+        fieldSpeedMultiplier(this.fieldItems.buffs);
       move(p, dir.x * speed * dt, dir.z * speed * dt, this.world.obstacles);
     }
+    this.fieldItems.update(dt, p, (kind) => this.collectFieldItem(kind));
     const region = zoneAt(p.x, p.z);
     if (region.id !== this.currentRegion) {
       this.currentRegion = region.id;
@@ -1233,7 +1341,7 @@ export class Game {
         (this.scent > 0 ? 1.6 : 1) * Math.min(1, 0.45 + gem.age * 4),
       );
       gem.mesh.position.y = heightAt(gem.x, gem.z) + xpDropHeight(gem.age);
-      if (gem.age >= XP_DROP_TIME && d <= pickupRadius(p, this.scent > 0))
+      if (gem.age >= XP_DROP_TIME && d <= this.collectionRadius())
         gem.attracted = true;
       if (gem.attracted) {
         const v = normalize(p.x - gem.x, p.z - gem.z);
@@ -1330,7 +1438,7 @@ export class Game {
       heightAt(this.player.x, this.player.z) + 0.04,
       this.player.z,
     );
-    this.collector.scale.setScalar(pickupRadius(this.player, this.scent > 0));
+    this.collector.scale.setScalar(this.collectionRadius());
     this.hero.material.color.set(
       this.hurtTime > 0 ? 0xffc9b2 : this.fury > 0 ? 0xffce88 : 0xffffff,
     );

@@ -1,3 +1,4 @@
+import { FIELD_ITEMS, type FieldItemKind } from "./field-loot";
 import { ZONES, zoneAt } from "./zones";
 import type { Point } from "./logic";
 const WIDTH = 120,
@@ -31,11 +32,25 @@ export class Minimap {
       g.fillText(String(a.id), x, y);
     }
   }
-  draw(canvas: HTMLCanvasElement, p: Point, boss?: Point & { dead: boolean }) {
+  draw(
+    canvas: HTMLCanvasElement,
+    p: Point,
+    boss?: Point & { dead: boolean },
+    items: readonly (Point & { kind: FieldItemKind })[] = [],
+  ) {
     const g = canvas.getContext("2d")!;
     g.imageSmoothingEnabled = false;
     g.clearRect(0, 0, WIDTH, HEIGHT);
     g.drawImage(this.background, 0, 0);
+    for (const item of items) {
+      const x = ((item.x + 30) / 60) * WIDTH,
+        y = ((item.z + 28) / 56) * HEIGHT;
+      g.fillStyle = "#15241e";
+      g.fillRect(x - 2, y - 2, 4, 4);
+      g.fillStyle = FIELD_ITEMS[item.kind].color;
+      g.fillRect(x - 1, y - 1, 2, 2);
+    }
+
     const x = ((p.x + 30) / 60) * WIDTH,
       y = ((p.z + 28) / 56) * HEIGHT;
     g.fillStyle = "#10241a";

@@ -85,6 +85,7 @@ node tests/enemies-browser.cjs
 node tests/stability-browser.cjs
 node tests/map-browser.cjs
 node tests/species-browser.cjs
+node tests/field-items-browser.cjs
 ```
 
 O teste de navegador usa Chromium em `/usr/bin/chromium`, substituível por `CHROMIUM_PATH`. Em outra máquina, instale Chromium ou adapte para o browser Playwright instalado. O parâmetro `?test` expõe o estado **somente em desenvolvimento** para cenários determinísticos. Os testes verificam movimentos por teclado, pausa real, combate automático, desbloqueio e ativação automática de cada habilidade, XP por espécie e coleta, níveis acumulados, chefe, vitória, derrota, limpeza no reinício, joystick e cartas de escolha em viewport móvel. Cenários de chefe e resultado aceleram o cronômetro/injetam dano para exercitar os estados; não equivalem a uma partida humana completa de oito minutos. A apresentação foi inspecionada em desktop e móvel. `npm test` cobre normalização, colisões, ponte, altura, arcos, custo/recarga e limites das melhorias, efeitos de raridade e qualidade e reinício sem habilidades. Os testes adicionais verificam os 144 recortes e pivôs, isolamento das animações, vida útil dos cadáveres, sequência visual dos ataques, etiqueta e salto do XP, preenchimento e reinício da barra em desktop e celular.
@@ -143,3 +144,25 @@ Todos os valores abaixo são adaptações iniciais para o combate automático e 
 Corte corresponde ao ataque das raízes; perfuração aos projéteis do chefe; golpes dos brutos/chefe são contusão e projéteis dos espectros são arcanos. A cada terceiro golpe recebido da mesma raiz, o agente fica imobilizado por 1,6 s antes das passivas. O pântano reduz movimento em 18%; Viva o SUS ignora esse terreno. Veneno e tornado causam dano sem provocar flashes a cada frame. Os controles de status, projéteis, armadilhas e efeitos são pausados e descartados no reinício. Esquiva do Lobisomem continua sem deslocamento; o teleporte pertence exclusivamente ao Saci quando aprendido.
 
 `tests/species.test.ts` cobre catálogos isolados, passivas, dano por tipo, duração do veneno, chefes e os recortes das novas folhas. `tests/species-browser.cjs` exercita seleção real, uma escolha de nível, poderes automáticos, interrupções, recargas, pausa, reinício e layout móvel. São cenários acelerados, não avaliação de equilíbrio de uma partida completa.
+
+## Itens pelo mapa e acontecimentos surpresa
+
+Cada missão distribui **15 itens** aleatoriamente, três em cada uma das cinco áreas: uma relíquia e dois suprimentos sorteados. A distribuição muda ao reiniciar. Os pontos vêm de uma busca das áreas acessíveis a partir da base, incluindo a ponte; são afastados de obstáculos, da posição inicial e uns dos outros. A cada **30 segundos** de jogo, cada área com menos de quatro itens recebe até um novo, respeitando o limite global de **20**. A reposição não acontece em cima do jogador.
+
+Os itens usam sprites 2D originais de 24 pixels, criados localmente em Canvas com filtro nearest. Há uma marca colorida no chão, uma etiqueta ao se aproximar e um ponto da mesma cor no minimapa. Encoste a até **1 m** para coletar; o magnetismo de XP não ativa relíquias à distância. Kits e frascos permanecem no mapa quando o recurso está cheio, com uma etiqueta explicando isso.
+
+| Item | Efeito |
+| --- | --- |
+| Kit de primeiros socorros | Recupera até 30% da vida máxima |
+| Frasco de Essência | Recupera até 40% da Essência máxima |
+| Presa ancestral | +30% de dano dos ataques e habilidades por 15 s |
+| Pluma do vento | +25% de movimento por 15 s |
+| Escudo espiritual | Recebe 30% menos dano por 15 s, além das proteções existentes |
+| Pedra magnética | +75% no raio de coleta de XP por 15 s |
+| Relíquia instável | Revela um dos quatro acontecimentos abaixo ao coletar |
+
+As relíquias sorteiam **Emboscada (35%)**, **Chuva de fragmentos (30%)**, **Bênção da mata (20%)** ou **Calmaria sobrenatural (15%)**. A emboscada tenta invocar de seis a dez criaturas, conforme a região, em posições livres a 7–11 m do agente; respeita o limite normal de inimigos e nunca invoca chefes. Se não houver espaço ou capacidade, concede a chuva de XP. A chuva cria cinco fragmentos físicos, com XP crescente por região, que precisam ser coletados normalmente. A bênção recupera parte da vida e Essência e concede proteção por 15 s. A calmaria interrompe e desacelera criaturas a até 12 m por 5 s e concede agilidade por 15 s.
+
+Buffs aparecem com ícone e contagem regressiva. Recoletar o mesmo buff renova a duração, sem empilhar sua intensidade; buffs diferentes coexistem. As melhorias permanentes de nível continuam independentes: expirar um buff não remove atributos ganhos. Itens, efeitos e reposição pausam na pausa e nas escolhas de nível. Reiniciar ou voltar ao menu remove itens, avisos e buffs da missão anterior.
+
+Regras e valores: `src/field-loot.ts`. Sprites, distribuição, coleta e reposição: `src/field-items.ts`. Integração com dano, movimento, XP e acontecimentos: `src/game.ts`. `tests/field-loot.test.ts` valida recursos, duração, alcance, distribuição e locais de emboscada; `tests/field-items-browser.cjs` verifica coleta única, efeitos reais, eventos, limite de população, pausa, reinício, reposição e apresentação no celular.

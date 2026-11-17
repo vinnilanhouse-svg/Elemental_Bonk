@@ -1,4 +1,9 @@
 import {
+  FIELD_BUFFS,
+  fieldDamageMultiplier,
+  type FieldBuff,
+} from "./field-loot";
+import {
   CHARACTERS,
   SPECIES_SKILLS,
   skillFor,
@@ -8,7 +13,6 @@ import {
 import { portraitMarkup } from "./agent-assets";
 import { Game } from "./game";
 import { type Skill } from "./config";
-import { pickupRadius } from "./progression";
 import { xpFor } from "./logic";
 import { xpProgress } from "./xp";
 import { rewardIcon } from "./reward-icons";
@@ -106,7 +110,7 @@ export class UI {
         screen.innerHTML = `<div class="menu-layout"><section class="intro"><div class="eyebrow">ARQUIVO DE OPERAÇÃO / 001</div><h1>MONSTRÃO<span>Uma operação da G.M.S.</span></h1><p class="intro-copy">A mata está viva.<br>Algo lá dentro também.</p><p class="brief">Anomalias foram detectadas nos arredores da base de pesquisa. Entre na mata, proteja o perímetro e contenha a origem da corrupção.</p><div class="mission-tag"><i></i> MATA VIVA <span>CONTENÇÃO · 8 MIN</span></div><div class="agent-selector" role="group" aria-label="Escolher espécie">${(Object.keys(CHARACTERS) as Species[]).map((id) => `<button data-action="agent:${id}" aria-pressed="${id === p.species}">${portraitMarkup(id, 44)}<span>${CHARACTERS[id].name}</span></button>`).join("")}</div><p class="species-brief">${character.basic} · Ataque automático<br><small>${character.passive}</small></p><button class="primary" data-action="start">INICIAR MISSÃO <span>↗</span></button><div class="menu-secondary"><button data-action="help">Como jogar <span>⌘</span></button><button data-action="settings">Configurações <span>⚙</span></button></div><div class="records"><span>RECORDE <b>${g.save.bestKills} abates</b></span><span>OPERAÇÕES CONCLUÍDAS <b>${g.save.wins.toString().padStart(2, "0")}</b></span></div></section><aside class="agent-card"><div class="eyebrow">AGENTE EM CAMPO <span>${["wolf", "gorgon", "saci"].indexOf(p.species) + 1} / 03</span></div><div class="agent-art">${portraitMarkup(p.species, 270)}<div class="agent-grid"></div><span class="cross tl">+</span><span class="cross br">+</span></div><div class="agent-id"><span class="tag">ESPÉCIE / ${character.tag}</span><h2>${character.name} <span>✦</span></h2><p>${character.description}</p><div class="agent-stats"><span>VIDA <b>${p.maxHp}</b></span><span>DANO <b>${p.damage}</b></span><span>MOVIMENTO <b>${p.speed} m/s</b></span></div></div><div class="authorized"><span>● APTO PARA OPERAÇÃO</span><small>GMS–LW–001</small></div></aside></div><div class="terrain-label"><span>◈</span><div>MATA VIVA<small>SETOR 07 · BASE DE PESQUISA</small></div></div>`;
       }
       if (g.phase === "playing") {
-        screen.innerHTML = `<div class="hud"><div class="vitals"><div class="portrait">${portraitMarkup(p.species, 48)}</div><div><div class="agent-name">${character.name.toUpperCase()} <span id="level"></span></div><div class="bar health"><i id="hpbar"></i><span id="hptext"></span></div><div class="bar essence"><i id="epbar"></i><span id="eptext"></span></div></div></div><div class="mission-hud"><small id="region-name">OPERAÇÃO 001 / MATA VIVA</small><strong id="timer"></strong><span id="kills"></span><span class="region-danger" id="region-danger"></span></div><button class="pause-button" data-action="pause" aria-label="Pausar">Ⅱ</button></div><div id="bossbar"></div><div class="region-map"><span>REGIÕES / PERIGO 1–5</span><canvas id="region-minimap" width="120" height="112" aria-label="Minimapa das cinco regiões"></canvas></div><div class="xp-panel"><div class="xp-label"><span id="xp-level"></span><span id="xp-count"></span></div><div class="xp-track" id="xp-meter" role="progressbar" aria-label="Experiência até o próximo nível" aria-valuemin="0"><i id="xpbar"></i></div><span class="xp-gain" id="xp-gain"></span></div><div id="toast"></div><div class="evade-feedback" id="evade-feedback" role="status"></div><div class="skills"><div class="skill basic-attack" title="Ataca automaticamente a criatura mais próxima dentro do alcance"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">${rewardIcon(character.basicIcon)}</span><b>${character.basic}</b><small id="claw-stats"></small><em id="claw-action"></em></div>${(
+        screen.innerHTML = `<div class="hud"><div class="vitals"><div class="portrait">${portraitMarkup(p.species, 48)}</div><div><div class="agent-name">${character.name.toUpperCase()} <span id="level"></span></div><div class="bar health"><i id="hpbar"></i><span id="hptext"></span></div><div class="bar essence"><i id="epbar"></i><span id="eptext"></span></div></div></div><div class="mission-hud"><small id="region-name">OPERAÇÃO 001 / MATA VIVA</small><strong id="timer"></strong><span id="kills"></span><span class="region-danger" id="region-danger"></span></div><button class="pause-button" data-action="pause" aria-label="Pausar">Ⅱ</button></div><div id="bossbar"></div><div class="region-map"><span>PERIGO 1–5 · ◆ ITENS</span><canvas id="region-minimap" width="120" height="112" aria-label="Minimapa das cinco regiões"></canvas></div><div class="xp-panel"><div class="xp-label"><span id="xp-level"></span><span id="xp-count"></span></div><div class="xp-track" id="xp-meter" role="progressbar" aria-label="Experiência até o próximo nível" aria-valuemin="0"><i id="xpbar"></i></div><span class="xp-gain" id="xp-gain"></span></div><div id="toast"></div><aside class="field-status"><div id="field-notice" role="status" aria-live="polite" hidden></div><div id="field-buffs" aria-label="Benefícios temporários"></div></aside><div class="evade-feedback" id="evade-feedback" role="status"></div><div class="skills"><div class="skill basic-attack" title="Ataca automaticamente a criatura mais próxima dentro do alcance"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">${rewardIcon(character.basicIcon)}</span><b>${character.basic}</b><small id="claw-stats"></small><em id="claw-action"></em></div>${(
           Object.entries(SPECIES_SKILLS[p.species]) as [Skill, SkillDef][]
         )
           .map(([k, s]) => ({ k, s, i: skillIndex[k] }))
@@ -130,7 +134,7 @@ export class UI {
         screen.innerHTML = `<div class="modal-shade"><section class="modal ${g.phase === "upgrade" ? "wide" : ""}"><div class="eyebrow">${g.phase === "upgrade" ? "EVOLUÇÃO / NÍVEL " + p.level : "G.M.S. / RELATÓRIO DE CAMPO"}</div><h2>${title}</h2>${g.phase === "paused" ? `${this.controls()}<div class="inventory"><h3>Equipamento e instintos</h3>${this.inventory()}</div><div class="settings">${this.settings()}</div><button class="primary" data-action="resume">CONTINUAR OPERAÇÃO →</button>` : g.phase === "upgrade" ? `<p>Escolha 1 de 3. Itens melhoram seus atributos; instintos desbloqueiam e evoluem habilidades automáticas.</p><div class="upgrades">${g.upgradeChoices.map((u) => this.upgradeCard(u)).join("")}</div>` : `<p>${g.phase === "victory" ? "A origem da corrupção foi neutralizada. O perímetro está seguro." : "A equipe de resgate chegou. Reorganize-se para uma nova incursão."}</p><div class="result"><span>TEMPO<b>${clock(g.time)}</b></span><span>NÍVEL<b>${p.level}</b></span><span>ABATES<b>${p.kills}</b></span></div><button class="primary" data-action="retry">JOGAR NOVAMENTE →</button>`}${g.phase !== "upgrade" ? '<button class="text-button" data-action="menu">Voltar ao menu</button>' : ""}</section></div>`;
       }
       if (this.panel) {
-        screen.innerHTML += `<div class="modal-shade"><section class="modal"><div class="eyebrow">MANUAL DO AGENTE</div><h2>${this.panel === "help" ? "Como jogar" : "Configurações"}</h2>${this.panel === "help" ? `${this.controls()}<p>Você começa com um ataque básico automático e a passiva da espécie, quando houver. Criaturas derrotadas deixam XP: entre no círculo de coleta para atrair os fragmentos. A cada nível, escolha 1 de 3 itens ou habilidades com raridade e qualidade próprias. Habilidades aprendidas são usadas automaticamente quando há ameaças ao alcance, respeitando Essência e recarga. Sobreviva por 8 minutos e derrote o chefe. Explore as cinco regiões do minimapa: os números indicam a dificuldade crescente. O chefe aparece nas Ruínas, região 5. O rio só pode ser atravessado pela ponte.</p>` : `<div class="settings">${this.settings()}</div>`}<button class="primary" data-action="back">VOLTAR →</button></section></div>`;
+        screen.innerHTML += `<div class="modal-shade"><section class="modal"><div class="eyebrow">MANUAL DO AGENTE</div><h2>${this.panel === "help" ? "Como jogar" : "Configurações"}</h2>${this.panel === "help" ? `${this.controls()}<p>Você começa com um ataque básico automático e a passiva da espécie, quando houver. Criaturas derrotadas deixam XP: entre no círculo de coleta para atrair os fragmentos. A cada nível, escolha 1 de 3 itens ou habilidades com raridade e qualidade próprias. Habilidades aprendidas são usadas automaticamente quando há ameaças ao alcance, respeitando Essência e recarga. Sobreviva por 8 minutos e derrote o chefe. Explore as cinco regiões do minimapa: os números indicam a dificuldade crescente. O chefe aparece nas Ruínas, região 5. O rio só pode ser atravessado pela ponte. Itens espalhados pelo mapa são coletados ao encostar: recuperam recursos ou dão buffs de 15 segundos. Relíquias roxas têm efeitos surpresa, incluindo emboscadas. Os pontos coloridos no minimapa mostram os itens.</p>` : `<div class="settings">${this.settings()}</div>`}<button class="primary" data-action="back">VOLTAR →</button></section></div>`;
       }
     }
     if (g.phase === "playing") {
@@ -138,6 +142,23 @@ export class UI {
         const el = document.getElementById(id);
         if (el && el.textContent !== text) el.textContent = text;
       };
+      const notice = document.getElementById("field-notice")!,
+        active = g.fieldItems.notice;
+      notice.hidden = !active;
+      if (active) {
+        notice.className = `notice-${active.tone}`;
+        const html = `<strong>${active.title}</strong><span>${active.text}</span>`;
+        if (notice.innerHTML !== html) notice.innerHTML = html;
+      }
+      const buffs = document.getElementById("field-buffs")!,
+        html = (Object.keys(FIELD_BUFFS) as FieldBuff[])
+          .filter((k) => g.fieldItems.buffs[k] > 0)
+          .map(
+            (k) =>
+              `<span class="field-buff" title="${FIELD_BUFFS[k].text}">${rewardIcon(FIELD_BUFFS[k].icon)}<b>${FIELD_BUFFS[k].name}</b><small>${Math.ceil(g.fieldItems.buffs[k])}s</small></span>`,
+          )
+          .join("");
+      if (buffs.innerHTML !== html) buffs.innerHTML = html;
       const region = zoneAt(p.x, p.z);
       set("region-name", region.name.toUpperCase());
       set("region-danger", `REGIÃO ${region.id} · PERIGO ${region.id}`);
@@ -145,6 +166,7 @@ export class UI {
         document.getElementById("region-minimap") as HTMLCanvasElement,
         p,
         g.boss,
+        g.fieldItems.items,
       );
       set("level", "NV. " + p.level);
       set("hptext", `${Math.ceil(p.hp)} / ${p.maxHp}`);
@@ -160,9 +182,12 @@ export class UI {
         ["xpbar", xpProgress(p.xp, xpFor(p.level))],
       ] as const)
         document.getElementById(id)!.style.width = `${n * 100}%`;
-      set("toast", g.toastTime > 0 ? g.toast : "");
+      set("toast", g.toastTime > 0 && !active ? g.toast : "");
       set("evade-feedback", g.evadeFeedback > 0 ? "ESQUIVOU" : "");
-      set("claw-stats", `${p.damage.toFixed(1)} DANO`);
+      set(
+        "claw-stats",
+        `${(p.damage * fieldDamageMultiplier(g.fieldItems.buffs)).toFixed(1)} DANO`,
+      );
       const striking =
         g.attackAnim > 0 ||
         g.feedback.signals.some(
@@ -184,7 +209,7 @@ export class UI {
       const xpMeter = document.getElementById("xp-meter")!;
       xpMeter.setAttribute("aria-valuenow", String(Math.floor(p.xp)));
       xpMeter.setAttribute("aria-valuemax", String(xpFor(p.level)));
-      xpMeter.title = `Raio de coleta: ${pickupRadius(p, g.scent > 0).toFixed(1)} m`;
+      xpMeter.title = `Raio de coleta: ${g.collectionRadius().toFixed(1)} m`;
       (Object.keys(SPECIES_SKILLS[p.species]) as Skill[]).forEach((k) => {
         const i = skillIndex[k],
           s = skillFor(p, k)!;
@@ -197,7 +222,7 @@ export class UI {
           !learned || g.cooldowns[k] > 0 || p.essence < s.cost,
         );
         el.title = learned
-          ? `Automática · Nível ${p.skills[k]} · Dano ${Math.round(s.damage * (1 + p.skillPower[k]))} · Intervalo ${(s.cooldown * p.cooldown).toFixed(1)}s · ${s.cost} Essência`
+          ? `Automática · Nível ${p.skills[k]} · Dano ${Math.round(s.damage * (1 + p.skillPower[k]) * fieldDamageMultiplier(g.fieldItems.buffs))} · Intervalo ${(s.cooldown * p.cooldown).toFixed(1)}s · ${s.cost} Essência`
           : "Aprenda ao subir de nível";
         el.querySelector("small")!.textContent = learned
           ? `NV ${p.skills[k]} · ${s.cost} ESS`
