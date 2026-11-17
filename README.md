@@ -22,7 +22,7 @@ Importe este repositório na Vercel, selecione Vite, comando `npm run build`, di
 
 ## Jogar
 
-WASD/setas ou joystick movimentam. Esc pausa/continua; roda do mouse ajusta o zoom. Você começa **somente com garras automáticas**, que se orientam para a criatura mais próxima dentro do alcance. Os instintos ofensivos são aprendidos nas escolhas de nível e usados **automaticamente** quando há ameaças próximas. A Esquiva é passiva: dá uma chance de evitar cada golpe recebido, sem deslocar o personagem. Os antigos atalhos Q/E/R/Espaço não ativam habilidades; o HUD mostra apenas as habilidades adquiridas, com Essência e recarga ou a chance passiva de esquiva.
+WASD/setas ou joystick movimentam. No celular, o joystick fica na parte inferior, centralizado na horizontal. Esc pausa/continua; roda do mouse ajusta o zoom. Você começa **somente com garras automáticas**, que se orientam para a criatura mais próxima dentro do alcance. Os instintos ofensivos são aprendidos nas escolhas de nível e usados **automaticamente** quando há ameaças próximas. A Esquiva é passiva: dá uma chance de evitar cada golpe recebido, sem deslocar o personagem. Os antigos atalhos Q/E/R/Espaço não ativam habilidades; o HUD mostra apenas as habilidades adquiridas, com Essência e recarga ou a chance passiva de esquiva.
 
 ## XP, itens e instintos
 
@@ -65,7 +65,7 @@ Os quatro inimigos agora têm arte original gerada para este projeto, seguindo a
 
 Os recortes medidos, pivôs dos pés e durações estão em `src/enemy-frames.json`. `src/enemy-animation.ts` preserva a escala de pixel entre poses, aplica as UVs de cada retângulo, usa nearest sem mipmaps e compartilha a imagem entre inimigos com transformações independentes. O teste de alpha descarta o ruído quase transparente que pode existir nas imagens geradas. As poses de preparação ficam ligadas ao tempo real de antecipação dos golpes; o dano e os projéteis saem ao entrar na pose de ataque. O chefe alterna golpe de área, rajada e invocação, usando as poses de conjuração nas duas últimas. Para evitar tremores, `stableFrames` alinha horizontalmente os passos por um ponto comum do corpo, em vez de alternar entre os pés. A troca de direção tem tolerância perto das diagonais e a reação de dano mantém uma pose estável. Os sprites vivos usam recorte de alpha com escrita de profundidade; apenas as mortes usam transparência de fade. Cadáveres animam por 0,78 segundo, sem causar dano ou bloquear o caminho, e pausam junto com a simulação. O reinício descarta materiais e instâncias sem destruir as imagens compartilhadas.
 
-Para revisar os recortes sem redesenhar os PNGs, o script opcional `scripts/inspect_enemy_atlas.py` requer Pillow e recebe `--crawler`, `--specter`, `--brute` e `--boss`, cada um com o caminho de sua imagem original. Ele mede o alpha e os pontos de apoio, copia os PNGs e gera os metadados. Os assets e metadados já estão no repositório; **Python e Pillow não são necessários para instalar, compilar ou executar o jogo**. O carregamento inicial mostra o progresso de 0 a 4 folhas e uma mensagem com botão de nova tentativa caso falhe.
+Para revisar os recortes sem redesenhar os PNGs, o script opcional `scripts/inspect_enemy_atlas.py` requer Pillow e recebe `--crawler`, `--specter`, `--brute` e `--boss`, cada um com o caminho de sua imagem original. Ele mede o alpha e os pontos de apoio, copia os PNGs e gera os metadados. Os assets e metadados já estão no repositório; **Python e Pillow não são necessários para instalar, compilar ou executar o jogo**. O carregamento inicial mostra o progresso de 0 a 6 folhas (quatro inimigos e dois atlas de cenário) e uma mensagem com botão de nova tentativa caso falhe.
 
 Cenário e sons continuam procedurais. A folha fornecida continua sujeita aos direitos do seu autor; confirme a autorização de publicação dos assets fornecidos.
 
@@ -83,14 +83,33 @@ npm test
 node tests/browser.cjs
 node tests/enemies-browser.cjs
 node tests/stability-browser.cjs
+node tests/map-browser.cjs
 ```
 
 O teste de navegador usa Chromium em `/usr/bin/chromium`, substituível por `CHROMIUM_PATH`. Em outra máquina, instale Chromium ou adapte para o browser Playwright instalado. O parâmetro `?test` expõe o estado **somente em desenvolvimento** para cenários determinísticos. Os testes verificam movimentos por teclado, pausa real, combate automático, desbloqueio e ativação automática de cada habilidade, XP por espécie e coleta, níveis acumulados, chefe, vitória, derrota, limpeza no reinício, joystick e cartas de escolha em viewport móvel. Cenários de chefe e resultado aceleram o cronômetro/injetam dano para exercitar os estados; não equivalem a uma partida humana completa de oito minutos. A apresentação foi inspecionada em desktop e móvel. `npm test` cobre normalização, colisões, ponte, altura, arcos, custo/recarga e limites das melhorias, efeitos de raridade e qualidade e reinício sem habilidades. Os testes adicionais verificam os 144 recortes e pivôs, isolamento das animações, vida útil dos cadáveres, sequência visual dos ataques, etiqueta e salto do XP, preenchimento e reinício da barra em desktop e celular.
 
 ## Limitações
 
-Primeira missão compacta: um mapa, uma espécie, sem multiplayer e sem salvamento da partida em andamento. Sem minimapa opcional. Navegação em grade com busca limitada; grandes grupos podem se aglomerar nos gargalos. As folhas de inimigos somam aproximadamente 11 MB e são carregadas antes do menu; conexões lentas podem levar alguns segundos no primeiro acesso. O balanceamento precisa de sessões humanas completas, especialmente em celulares físicos. A arte tem oclusão por profundidade, mas sprites não projetam sombras individuais. Qualidade baixa desliga sombras e reduz resolução. WebGL 2 e aceleração gráfica são necessários; há aviso quando o renderer não pode iniciar.
+Primeira missão: um mapa contínuo com cinco regiões, uma espécie, sem multiplayer e sem salvamento da partida em andamento. O minimapa mostra as regiões, o jogador, a ponte e o chefe. Navegação em grade com busca limitada; grandes grupos podem se aglomerar nos gargalos. As folhas de inimigos somam aproximadamente 11 MB e os dois atlas de cenário acrescentam cerca de 4,3 MB; são carregados antes do menu; conexões lentas podem levar alguns segundos no primeiro acesso. O balanceamento precisa de sessões humanas completas, especialmente em celulares físicos. A arte tem oclusão por profundidade, mas sprites não projetam sombras individuais. Qualidade baixa desliga sombras e reduz resolução. WebGL 2 e aceleração gráfica são necessários; há aviso quando o renderer não pode iniciar.
 
 ## Indicadores de combate
 
 As garras mostram três arcos dourados voltados ao alvo e o cartão “ATACANDO”. Inimigos mostram uma marca laranja no chão e um sinal de alerta antes do golpe; ataques à distância também mostram a linha de disparo. A marca de impacto aparece quando o golpe é executado. A direção dos projéteis fica fixada na preparação para permitir desvio coerente com o indicador. Os sinais pausam com o jogo, têm população limitada e são descartados no reinício. Implementação: `src/combat-feedback.ts`. Ícones das melhorias: `src/reward-icons.ts`.
+
+## Cinco regiões e cenário em sprites
+
+Árvores, pedras, arbustos, construções, van, ponte e objetos de decoração agora são **sprites 2D pixelados**. O terreno, seus desníveis, caminhos e água continuam como superfícies do mundo 3D sob a câmera inclinada. Não há mais árvores cônicas nem prédios formados por caixas. Os assets originais gerados ficam em `public/scenery/forest-props.png` e `zone-props.png`. Há 24 recortes medidos em `src/scenery-frames.json` e `zone-scenery-frames.json`; a integração está em `src/scenery-sprites.ts`.
+
+| Região                     | Localização             | Visual                                                | Vida dos inimigos | Dano  | XP    |
+| -------------------------- | ----------------------- | ----------------------------------------------------- | ----------------- | ----- | ----- |
+| 1 · Mata Viva              | Clareira central e base | Verde, luz dourada, estação de pesquisa               | ×1                | ×1    | ×1    |
+| 2 · Bosque Bioluminescente | Noroeste                | Árvores azuis, cogumelos luminosos e platô            | ×1,3              | ×1,2  | ×1,25 |
+| 3 · Floresta de Outono     | Nordeste                | Folhagem alaranjada, arco de pedra e samambaias secas | ×1,65             | ×1,45 | ×1,5  |
+| 4 · Pântano da Névoa       | Sudeste                 | Salgueiros, juncos, poças e neblina                   | ×2,05             | ×1,75 | ×1,8  |
+| 5 · Ruínas Ancestrais      | Sudoeste                | Arcos, pilares, círculo ritual e corrupção            | ×2,5              | ×2,15 | ×2,2  |
+
+As regiões compartilham o mesmo espaço, sem teletransporte. Atravesse o rio pela ponte central para chegar ao lado leste. O nome da área e seu nível de perigo aparecem no HUD, com uma mensagem ao cruzar a fronteira. `src/zones.ts` centraliza os limites, as posições de referência e os multiplicadores. Cada criatura mantém os atributos da região em que nasceu; sair dela não enfraquece inimigos que estiverem perseguindo o jogador. Regiões avançadas introduzem espectros e brutos mais cedo. Após oito minutos, o chefe aparece nas Ruínas e é marcado no minimapa. A duração não exige completar cinco missões separadas.
+
+`src/occlusion.ts` testa o caminho entre a câmera e partes do corpo do jogador, incluindo o alpha dos pixels do atlas. Objetos que realmente encobrem o agente ficam suavemente a **28% de opacidade**, conservam o recorte dos pixels e recuperam a opacidade quando ele sai. Uma tolerância curta evita piscadas junto às bordas das folhas. Pontas transparentes das imagens não disparam o efeito. O agente é desenhado após as camadas transparentes durante a oclusão para continuar legível mesmo entre sprites sobrepostos. As colisões continuam ativas enquanto a arte está transparente. Os testes cobrem sprites à frente, atrás e no mesmo plano do jogador, os caminhos entre todas as regiões e a escala de dificuldade.
+
+As cinco imagens de direção visual enviadas na conversa são conceitos. O jogo aplica os cinco temas com sprites próprios e um mapa conectado; elas não são capturas do build publicado nem representam novos controles ou sistemas adicionais.

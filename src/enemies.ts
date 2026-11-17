@@ -5,6 +5,9 @@ export type Enemy = Point & {
   id: number;
   kind: number;
   hp: number;
+  zoneId: number;
+  damageScale: number;
+  xpValue: number;
   maxHp: number;
   speed: number;
   cooldown: number;

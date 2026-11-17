@@ -6,6 +6,8 @@ import { xpProgress } from "./xp";
 import { rewardIcon } from "./reward-icons";
 import { evasionChance } from "./skills";
 import type { UpgradeChoice } from "./progression";
+import { zoneAt } from "./zones";
+import { Minimap } from "./minimap";
 import { store } from "./save";
 export const clock = (s: number) =>
   `${Math.floor(s / 60)
@@ -18,6 +20,7 @@ const controls =
 export class UI {
   last = "";
   panel = "";
+  minimap = new Minimap();
   root = document.querySelector<HTMLDivElement>("#interface")!;
   constructor(public game: Game) {
     game.onUI = () => this.render();
@@ -71,7 +74,7 @@ export class UI {
         screen.innerHTML = `<div class="menu-layout"><section class="intro"><div class="eyebrow">ARQUIVO DE OPERAÇÃO / 001</div><h1>MONSTRÃO<span>Uma operação da G.M.S.</span></h1><p class="intro-copy">A mata está viva.<br>Algo lá dentro também.</p><p class="brief">Anomalias foram detectadas nos arredores da base de pesquisa. Entre na mata, proteja o perímetro e contenha a origem da corrupção.</p><div class="mission-tag"><i></i> MATA VIVA <span>CONTENÇÃO · 8 MIN</span></div><button class="primary" data-action="start">INICIAR MISSÃO <span>↗</span></button><div class="menu-secondary"><button data-action="help">Como jogar <span>⌘</span></button><button data-action="settings">Configurações <span>⚙</span></button></div><div class="records"><span>RECORDE <b>${g.save.bestKills} abates</b></span><span>OPERAÇÕES CONCLUÍDAS <b>${g.save.wins.toString().padStart(2, "0")}</b></span></div></section><aside class="agent-card"><div class="eyebrow">AGENTE EM CAMPO <span>01 / 01</span></div><div class="agent-art"><img src="/wolf-portrait.png" alt="Lobisomem com colete tático verde" onerror="this.style.display='none'"><div class="agent-grid"></div><span class="cross tl">+</span><span class="cross br">+</span></div><div class="agent-id"><span class="tag">ESPÉCIE / LICANTROPO</span><h2>Lobisomem <span>✦</span></h2><p>Força ancestral. Instinto de proteção.</p><div class="agent-stats"><span>GARRAS <b>━━━━━</b></span><span>RESISTÊNCIA <b>━━━━╸</b></span><span>MOBILIDADE <b>━━━╸</b></span></div></div><div class="authorized"><span>● APTO PARA OPERAÇÃO</span><small>GMS–LW–001</small></div></aside></div><div class="terrain-label"><span>◈</span><div>MATA VIVA<small>SETOR 07 · BASE DE PESQUISA</small></div></div>`;
       }
       if (g.phase === "playing") {
-        screen.innerHTML = `<div class="hud"><div class="vitals"><div class="portrait"><img src="/wolf-portrait.png" alt="Agente lobisomem"></div><div><div class="agent-name">LOBISOMEM <span id="level"></span></div><div class="bar health"><i id="hpbar"></i><span id="hptext"></span></div><div class="bar essence"><i id="epbar"></i><span id="eptext"></span></div></div></div><div class="mission-hud"><small>OPERAÇÃO 001 / MATA VIVA</small><strong id="timer"></strong><span id="kills"></span></div><button class="pause-button" data-action="pause" aria-label="Pausar">Ⅱ</button></div><div id="bossbar"></div><div class="xp-panel"><div class="xp-label"><span id="xp-level"></span><span id="xp-count"></span></div><div class="xp-track" id="xp-meter" role="progressbar" aria-label="Experiência até o próximo nível" aria-valuemin="0"><i id="xpbar"></i></div><span class="xp-gain" id="xp-gain"></span></div><div id="toast"></div><div class="evade-feedback" id="evade-feedback" role="status"></div><div class="skills"><div class="skill basic-attack" title="Ataca automaticamente a criatura mais próxima dentro do alcance"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">${rewardIcon("damage")}</span><b>Garras</b><small id="claw-stats"></small><em id="claw-action"></em></div>${(
+        screen.innerHTML = `<div class="hud"><div class="vitals"><div class="portrait"><img src="/wolf-portrait.png" alt="Agente lobisomem"></div><div><div class="agent-name">LOBISOMEM <span id="level"></span></div><div class="bar health"><i id="hpbar"></i><span id="hptext"></span></div><div class="bar essence"><i id="epbar"></i><span id="eptext"></span></div></div></div><div class="mission-hud"><small id="region-name">OPERAÇÃO 001 / MATA VIVA</small><strong id="timer"></strong><span id="kills"></span><span class="region-danger" id="region-danger"></span></div><button class="pause-button" data-action="pause" aria-label="Pausar">Ⅱ</button></div><div id="bossbar"></div><div class="region-map"><span>REGIÕES / PERIGO 1–5</span><canvas id="region-minimap" width="120" height="112" aria-label="Minimapa das cinco regiões"></canvas></div><div class="xp-panel"><div class="xp-label"><span id="xp-level"></span><span id="xp-count"></span></div><div class="xp-track" id="xp-meter" role="progressbar" aria-label="Experiência até o próximo nível" aria-valuemin="0"><i id="xpbar"></i></div><span class="xp-gain" id="xp-gain"></span></div><div id="toast"></div><div class="evade-feedback" id="evade-feedback" role="status"></div><div class="skills"><div class="skill basic-attack" title="Ataca automaticamente a criatura mais próxima dentro do alcance"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">${rewardIcon("damage")}</span><b>Garras</b><small id="claw-stats"></small><em id="claw-action"></em></div>${(
           Object.entries(SKILLS) as [Skill, typeof SKILLS.q][]
         )
           .map(([k, s], i) => ({ k, s, i }))
@@ -95,7 +98,7 @@ export class UI {
         screen.innerHTML = `<div class="modal-shade"><section class="modal ${g.phase === "upgrade" ? "wide" : ""}"><div class="eyebrow">${g.phase === "upgrade" ? "EVOLUÇÃO / NÍVEL " + p.level : "G.M.S. / RELATÓRIO DE CAMPO"}</div><h2>${title}</h2>${g.phase === "paused" ? `${controls}<div class="inventory"><h3>Equipamento e instintos</h3>${this.inventory()}</div><div class="settings">${this.settings()}</div><button class="primary" data-action="resume">CONTINUAR OPERAÇÃO →</button>` : g.phase === "upgrade" ? `<p>Escolha 1 de 3. Itens melhoram seus atributos; instintos desbloqueiam e evoluem habilidades automáticas.</p><div class="upgrades">${g.upgradeChoices.map((u) => this.upgradeCard(u)).join("")}</div>` : `<p>${g.phase === "victory" ? "A origem da corrupção foi neutralizada. O perímetro está seguro." : "A equipe de resgate chegou. Reorganize-se para uma nova incursão."}</p><div class="result"><span>TEMPO<b>${clock(g.time)}</b></span><span>NÍVEL<b>${p.level}</b></span><span>ABATES<b>${p.kills}</b></span></div><button class="primary" data-action="retry">JOGAR NOVAMENTE →</button>`}${g.phase !== "upgrade" ? '<button class="text-button" data-action="menu">Voltar ao menu</button>' : ""}</section></div>`;
       }
       if (this.panel) {
-        screen.innerHTML += `<div class="modal-shade"><section class="modal"><div class="eyebrow">MANUAL DO AGENTE</div><h2>${this.panel === "help" ? "Como jogar" : "Configurações"}</h2>${this.panel === "help" ? `${controls}<p>Você começa somente com garras automáticas. Criaturas derrotadas deixam XP: entre no círculo de coleta para atrair os fragmentos. A cada nível, escolha 1 de 3 itens ou habilidades com raridade e qualidade próprias. Habilidades aprendidas são usadas automaticamente quando há ameaças ao alcance, respeitando Essência e recarga. Sobreviva por 8 minutos e derrote o chefe. O rio só pode ser atravessado pela ponte.</p>` : `<div class="settings">${this.settings()}</div>`}<button class="primary" data-action="back">VOLTAR →</button></section></div>`;
+        screen.innerHTML += `<div class="modal-shade"><section class="modal"><div class="eyebrow">MANUAL DO AGENTE</div><h2>${this.panel === "help" ? "Como jogar" : "Configurações"}</h2>${this.panel === "help" ? `${controls}<p>Você começa somente com garras automáticas. Criaturas derrotadas deixam XP: entre no círculo de coleta para atrair os fragmentos. A cada nível, escolha 1 de 3 itens ou habilidades com raridade e qualidade próprias. Habilidades aprendidas são usadas automaticamente quando há ameaças ao alcance, respeitando Essência e recarga. Sobreviva por 8 minutos e derrote o chefe. Explore as cinco regiões do minimapa: os números indicam a dificuldade crescente. O chefe aparece nas Ruínas, região 5. O rio só pode ser atravessado pela ponte.</p>` : `<div class="settings">${this.settings()}</div>`}<button class="primary" data-action="back">VOLTAR →</button></section></div>`;
       }
     }
     if (g.phase === "playing") {
@@ -103,6 +106,14 @@ export class UI {
         const el = document.getElementById(id);
         if (el && el.textContent !== text) el.textContent = text;
       };
+      const region = zoneAt(p.x, p.z);
+      set("region-name", region.name.toUpperCase());
+      set("region-danger", `REGIÃO ${region.id} · PERIGO ${region.id}`);
+      this.minimap.draw(
+        document.getElementById("region-minimap") as HTMLCanvasElement,
+        p,
+        g.boss,
+      );
       set("level", "NV. " + p.level);
       set("hptext", `${Math.ceil(p.hp)} / ${p.maxHp}`);
       set("eptext", `${Math.floor(p.essence)} / ${p.maxEssence}`);

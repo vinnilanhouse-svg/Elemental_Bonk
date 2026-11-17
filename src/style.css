@@ -851,10 +851,10 @@ body {
   }
   #joystick {
     display: block;
-    top: 50%;
+    top: auto;
     left: 50%;
-    bottom: auto;
-    transform: translate(-50%, -50%);
+    bottom: 82px;
+    transform: translateX(-50%);
   }
   .upgrades {
     grid-template-columns: 1fr;
@@ -1270,5 +1270,54 @@ progress {
   .skill-icon svg {
     width: 21px;
     height: 21px;
+  }
+}
+.region-map {
+  position: absolute;
+  right: 35px;
+  top: 195px;
+  width: 138px;
+  padding: 8px;
+  background: #13291ee8;
+  border: 1px solid #a8ba7655;
+}
+.region-map > span {
+  display: block;
+  font: 7px monospace;
+  letter-spacing: 0.6px;
+  color: #d5dab7;
+  margin-bottom: 5px;
+}
+.region-map canvas {
+  width: 120px;
+  height: 112px;
+  display: block;
+  image-rendering: pixelated;
+}
+.mission-hud .region-danger {
+  font: 8px monospace;
+  color: #e6c88f;
+  margin-top: 6px;
+}
+@media (max-width: 760px) {
+  .region-map {
+    right: 14px;
+    top: 177px;
+    width: 96px;
+    padding: 6px;
+  }
+  .region-map > span {
+    font-size: 5px;
+    letter-spacing: 0;
+  }
+  .region-map canvas {
+    width: 82px;
+    height: 77px;
+  }
+  .mission-hud .region-danger {
+    font-size: 6px;
+  }
+  .mission-hud small {
+    overflow-wrap: anywhere;
   }
 }

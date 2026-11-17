@@ -1,0 +1,54 @@
+{
+  "url": "/scenery/zone-props.png",
+  "size": [1086, 1448],
+  "frames": [
+    {
+      "id": "nightTree",
+      "rect": [10, 6, 352, 346]
+    },
+    {
+      "id": "nightPlants",
+      "rect": [362, 117, 337, 236]
+    },
+    {
+      "id": "corruptRock",
+      "rect": [749, 128, 309, 221]
+    },
+    {
+      "id": "autumnTree",
+      "rect": [6, 364, 355, 360]
+    },
+    {
+      "id": "autumnPlants",
+      "rect": [376, 468, 327, 244]
+    },
+    {
+      "id": "autumnArch",
+      "rect": [736, 426, 333, 284]
+    },
+    {
+      "id": "swampTree",
+      "rect": [6, 724, 340, 353]
+    },
+    {
+      "id": "reeds",
+      "rect": [380, 787, 309, 283]
+    },
+    {
+      "id": "boardwalk",
+      "rect": [727, 836, 353, 231]
+    },
+    {
+      "id": "ruinArch",
+      "rect": [10, 1094, 349, 341]
+    },
+    {
+      "id": "pillars",
+      "rect": [376, 1105, 328, 324]
+    },
+    {
+      "id": "ritual",
+      "rect": [725, 1207, 348, 217]
+    }
+  ]
+}

@@ -14,6 +14,8 @@ import {
   xpFor,
   type Point,
 } from "./logic";
+import { type SceneryAsset } from "./scenery-sprites";
+import { zoneAt, zoneStats, ZONES } from "./zones";
 import { World } from "./map";
 import { Camera } from "./camera";
 import { Input } from "./input";
@@ -33,9 +35,9 @@ import {
 } from "./progression";
 import type { Enemy, Projectile, Gem, Effect } from "./enemies";
 export class Game {
-  world = new World();
+  world: World;
   camera = new Camera();
-  feedback = new CombatFeedback(this.world.scene);
+  feedback: CombatFeedback;
   input = new Input();
   audio = new Audio();
   save = load();
@@ -53,6 +55,7 @@ export class Game {
   effects: Effect[] = [];
   corpses: Enemy[] = [];
   phase = "menu";
+  currentRegion = 1;
   time = 0;
   spawnClock = 0;
   attackClock = 0;
@@ -81,7 +84,10 @@ export class Game {
   constructor(
     canvas: HTMLCanvasElement,
     public enemyAssets: EnemyAsset[],
+    sceneryAssets: SceneryAsset[],
   ) {
+    this.world = new World(sceneryAssets);
+    this.feedback = new CombatFeedback(this.world.scene);
     this.renderer = new T.WebGLRenderer({
       canvas,
       antialias: false,
@@ -146,6 +152,7 @@ export class Game {
   }
   clear() {
     this.feedback.clear();
+    this.world.occlusion.reset();
     for (const e of new Set([...this.enemies, ...this.corpses])) {
       this.world.scene.remove(e.mesh);
       e.anim.dispose();
@@ -164,6 +171,7 @@ export class Game {
     this.clear();
     this.player = freshPlayer();
     this.time = 0;
+    this.currentRegion = 1;
     this.spawnClock = 1;
     this.xpFeedback = 0;
     this.lastXP = 0;
@@ -329,8 +337,11 @@ export class Game {
       distance(p, this.player) < 1.8
     )
       return;
+    const region = zoneStats(kind, p);
     const maxHp =
-      [38, 25, 100, 2100][kind] * (kind === 3 ? 1 : 1 + this.time / 800);
+      [38, 25, 100, 2100][kind] *
+      region.hp *
+      (kind === 3 ? 1 : 1 + this.time / 800);
     const mesh = new T.Sprite(
       new T.SpriteMaterial({
         map: this.enemyAssets[kind].texture,
@@ -348,7 +359,10 @@ export class Game {
       kind,
       hp: maxHp,
       maxHp,
-      speed: [2.1, 1.55, 1.2, 0.8][kind],
+      speed: [2.1, 1.55, 1.2, 0.8][kind] * region.speed,
+      zoneId: region.zoneId,
+      damageScale: region.damage,
+      xpValue: Math.round(ENEMY_XP[kind] * region.xp),
       cooldown: 1.5,
       slow: 0,
       windup: 0,
@@ -385,11 +399,11 @@ export class Game {
         this.world.scene.remove(old.mesh);
         old.anim.dispose();
       }
-      const mesh = xpFragment(ENEMY_XP[e.kind], this.xpLabel);
+      const mesh = xpFragment(e.xpValue, this.xpLabel);
       mesh.position.set(e.x, heightAt(e.x, e.z) + 0.28, e.z);
       this.world.scene.add(mesh);
       this.effect(e.x, e.z, 0xd5ed97, 0.4, 0.35, 1);
-      this.gems.push({ x: e.x, z: e.z, value: ENEMY_XP[e.kind], age: 0, mesh });
+      this.gems.push({ x: e.x, z: e.z, value: e.xpValue, age: 0, mesh });
       if (this.gems.length > 240) {
         const old = this.gems.shift()!;
         this.gems[0].value += old.value;
@@ -429,7 +443,7 @@ export class Game {
       vx: Math.cos(angle) * 5,
       vz: Math.sin(angle) * 5,
       life: 5,
-      damage: e.kind === 3 ? 18 : 12,
+      damage: (e.kind === 3 ? 18 : 12) * e.damageScale,
       mesh,
     });
   }
@@ -505,6 +519,11 @@ export class Game {
       if (this.attackAnim <= 0) this.heading = dir;
       move(p, dir.x * p.speed * dt, dir.z * p.speed * dt, this.world.obstacles);
     }
+    const region = zoneAt(p.x, p.z);
+    if (region.id !== this.currentRegion) {
+      this.currentRegion = region.id;
+      this.message(`${region.name} · PERIGO ${region.id}`);
+    }
     this.anim.direction = stableDirection(
       this.anim.direction,
       this.heading.x,
@@ -514,21 +533,35 @@ export class Game {
     if (this.spawnClock <= 0 && !this.boss?.dead) {
       this.spawnClock = Math.max(0.4, 2.5 - this.time / 210);
       const kind =
-        this.time > 100 && Math.random() < 0.23
+        (this.time > 100 || region.id >= 3) &&
+        Math.random() < 0.2 + region.id * 0.035
           ? 2
-          : this.time > 40 && Math.random() < 0.3
+          : (this.time > 40 || region.id >= 2) &&
+              Math.random() < 0.25 + region.id * 0.035
             ? 1
             : 0;
       this.spawn(kind);
     }
     if (this.time >= CFG.duration && !this.bossSpawned) {
-      this.bossSpawned = true;
-      this.enemies
-        .filter((e) => !e.dead)
-        .slice(0, 8)
-        .forEach((e) => this.damage(e, 9999));
-      this.spawn(3, { x: 0, z: this.player.z > 0 ? -6 : 6 });
-      this.message("ANOMALIA CRÍTICA · Coração da Corrupção");
+      const point = [
+        { x: -19, z: 16 },
+        { x: -16, z: 17 },
+        { x: -20, z: 14 },
+        { x: -18, z: 19 },
+      ].find(
+        (p0) =>
+          canMove(p0, this.world.obstacles, 1.1) && distance(p, p0) >= 2.5,
+      );
+      if (point) {
+        this.enemies
+          .filter((e) => !e.dead)
+          .slice(0, 8)
+          .forEach((e) => this.damage(e, 9999));
+        this.spawn(3, point);
+        this.bossSpawned = Boolean(this.boss);
+        if (this.bossSpawned)
+          this.message("CHEFE NAS RUÍNAS · Siga para a região 5");
+      }
     }
     this.autoSkills();
     if (this.phase !== "playing") return;
@@ -619,7 +652,9 @@ export class Game {
               ? d < 5
               : inCone(e, e.facing, p, e.kind === 2 ? 2.8 : 1.9)
           )
-            this.hurt(e.kind === 3 ? 35 : e.kind === 2 ? 25 : 10);
+            this.hurt(
+              (e.kind === 3 ? 35 : e.kind === 2 ? 25 : 10) * e.damageScale,
+            );
         }
       } else if (e.action > 0) {
         // Finish the visible strike before locomotion resumes.
@@ -843,6 +878,7 @@ export class Game {
       this.player.z,
       dt,
     );
+    this.world.update(this.camera, this.hero, dt);
     this.renderer.render(this.world.scene, this.camera);
     this.onUI();
     requestAnimationFrame(this.loop);
