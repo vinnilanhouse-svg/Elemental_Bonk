@@ -1124,3 +1124,71 @@ body {
     display: none;
   }
 }
+.xp-panel {
+  position: absolute;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 447px;
+  padding: 8px 12px;
+  background: #13291fe8;
+  border: 1px solid #a6bc7955;
+  pointer-events: auto;
+}
+.xp-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+  font: 9px monospace;
+  letter-spacing: 1px;
+  color: #d7e2b8;
+}
+.xp-panel .xp-track {
+  position: relative;
+  inset: auto;
+  height: 9px;
+  border: 1px solid #8ea16b77;
+  background: #071910;
+  overflow: hidden;
+}
+.xp-panel .xp-track i {
+  background: linear-gradient(90deg, #91b56c, #d9e7a6);
+  transition: width 0.15s linear;
+  box-shadow: 0 0 8px #cde59366;
+}
+.xp-gain {
+  position: absolute;
+  right: 12px;
+  top: -21px;
+  font: 700 12px monospace;
+  color: #e5f4b7;
+  text-shadow: 0 2px 5px #14291e;
+}
+.skills {
+  bottom: 83px;
+}
+progress {
+  width: 100%;
+  height: 10px;
+  accent-color: #c7d797;
+}
+@media (max-width: 760px) {
+  .xp-panel {
+    bottom: 14px;
+    left: 22px;
+    right: 22px;
+    transform: none;
+    width: auto;
+    padding: 8px 10px;
+  }
+  .xp-label {
+    font-size: 8px;
+  }
+  .skills {
+    bottom: 76px;
+  }
+  .xp-gain {
+    font-size: 11px;
+  }
+}

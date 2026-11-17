@@ -1,4 +1,5 @@
 import * as T from "three";
+import type { EnemyAnimator } from "./enemy-animation";
 import type { Point } from "./logic";
 export type Enemy = Point & {
   id: number;
@@ -12,6 +13,11 @@ export type Enemy = Point & {
   hit: number;
   mesh: T.Sprite;
   dead: boolean;
+  anim: EnemyAnimator;
+  facing: Point;
+  action: number;
+  attackMode: "melee" | "ranged" | "slam" | "volley" | "summon";
+  bossPattern: number;
   nav?: Point;
   navClock: number;
 };
@@ -22,5 +28,10 @@ export type Projectile = Point & {
   damage: number;
   mesh: T.Mesh;
 };
-export type Gem = Point & { value: number; attracted?: boolean; mesh: T.Mesh };
+export type Gem = Point & {
+  value: number;
+  age: number;
+  attracted?: boolean;
+  mesh: T.Mesh;
+};
 export type Effect = { mesh: T.Mesh; life: number; max: number; grow: number };

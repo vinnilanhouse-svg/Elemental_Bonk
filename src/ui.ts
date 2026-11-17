@@ -2,6 +2,7 @@ import { Game } from "./game";
 import { SKILLS, type Skill } from "./config";
 import { pickupRadius } from "./progression";
 import { xpFor } from "./logic";
+import { xpProgress } from "./xp";
 import { store } from "./save";
 export const clock = (s: number) =>
   `${Math.floor(s / 60)
@@ -67,7 +68,7 @@ export class UI {
         screen.innerHTML = `<div class="menu-layout"><section class="intro"><div class="eyebrow">ARQUIVO DE OPERAÇÃO / 001</div><h1>MONSTRÃO<span>Uma operação da G.M.S.</span></h1><p class="intro-copy">A mata está viva.<br>Algo lá dentro também.</p><p class="brief">Anomalias foram detectadas nos arredores da base de pesquisa. Entre na mata, proteja o perímetro e contenha a origem da corrupção.</p><div class="mission-tag"><i></i> MATA VIVA <span>CONTENÇÃO · 8 MIN</span></div><button class="primary" data-action="start">INICIAR MISSÃO <span>↗</span></button><div class="menu-secondary"><button data-action="help">Como jogar <span>⌘</span></button><button data-action="settings">Configurações <span>⚙</span></button></div><div class="records"><span>RECORDE <b>${g.save.bestKills} abates</b></span><span>OPERAÇÕES CONCLUÍDAS <b>${g.save.wins.toString().padStart(2, "0")}</b></span></div></section><aside class="agent-card"><div class="eyebrow">AGENTE EM CAMPO <span>01 / 01</span></div><div class="agent-art"><img src="/wolf-portrait.png" alt="Lobisomem com colete tático verde" onerror="this.style.display='none'"><div class="agent-grid"></div><span class="cross tl">+</span><span class="cross br">+</span></div><div class="agent-id"><span class="tag">ESPÉCIE / LICANTROPO</span><h2>Lobisomem <span>✦</span></h2><p>Força ancestral. Instinto de proteção.</p><div class="agent-stats"><span>GARRAS <b>━━━━━</b></span><span>RESISTÊNCIA <b>━━━━╸</b></span><span>MOBILIDADE <b>━━━╸</b></span></div></div><div class="authorized"><span>● APTO PARA OPERAÇÃO</span><small>GMS–LW–001</small></div></aside></div><div class="terrain-label"><span>◈</span><div>MATA VIVA<small>SETOR 07 · BASE DE PESQUISA</small></div></div>`;
       }
       if (g.phase === "playing") {
-        screen.innerHTML = `<div class="hud"><div class="vitals"><div class="portrait"><img src="/wolf-portrait.png" alt="Agente lobisomem"></div><div><div class="agent-name">LOBISOMEM <span id="level"></span></div><div class="bar health"><i id="hpbar"></i><span id="hptext"></span></div><div class="bar essence"><i id="epbar"></i><span id="eptext"></span></div></div></div><div class="mission-hud"><small>OPERAÇÃO 001 / MATA VIVA</small><strong id="timer"></strong><span id="kills"></span></div><button class="pause-button" data-action="pause" aria-label="Pausar">Ⅱ</button></div><div id="bossbar"></div><div class="xp-track"><i id="xpbar"></i></div><div id="toast"></div><div class="skills"><div class="skill basic-attack" title="Ataca automaticamente a criatura mais próxima dentro do alcance"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">⋔</span><b>Garras</b><small id="claw-stats"></small></div>${(Object.entries(SKILLS) as [Skill, typeof SKILLS.q][]).map(([k, s], i) => `<div class="skill" id="skill-${i}" aria-label="${s.name}"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">${["≋", "◉", "♜", "➤"][i]}</span><b>${s.name}</b><small></small><em></em></div>`).join("")}</div><div class="auto-hint"><span id="xp-info"></span></div><div id="joystick"><i></i></div>`;
+        screen.innerHTML = `<div class="hud"><div class="vitals"><div class="portrait"><img src="/wolf-portrait.png" alt="Agente lobisomem"></div><div><div class="agent-name">LOBISOMEM <span id="level"></span></div><div class="bar health"><i id="hpbar"></i><span id="hptext"></span></div><div class="bar essence"><i id="epbar"></i><span id="eptext"></span></div></div></div><div class="mission-hud"><small>OPERAÇÃO 001 / MATA VIVA</small><strong id="timer"></strong><span id="kills"></span></div><button class="pause-button" data-action="pause" aria-label="Pausar">Ⅱ</button></div><div id="bossbar"></div><div class="xp-panel"><div class="xp-label"><span id="xp-level"></span><span id="xp-count"></span></div><div class="xp-track" id="xp-meter" role="progressbar" aria-label="Experiência até o próximo nível" aria-valuemin="0"><i id="xpbar"></i></div><span class="xp-gain" id="xp-gain"></span></div><div id="toast"></div><div class="skills"><div class="skill basic-attack" title="Ataca automaticamente a criatura mais próxima dentro do alcance"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">⋔</span><b>Garras</b><small id="claw-stats"></small></div>${(Object.entries(SKILLS) as [Skill, typeof SKILLS.q][]).map(([k, s], i) => `<div class="skill" id="skill-${i}" aria-label="${s.name}"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">${["≋", "◉", "♜", "➤"][i]}</span><b>${s.name}</b><small></small><em></em></div>`).join("")}</div><div id="joystick"><i></i></div>`;
         this.joystick();
       }
       if (["paused", "upgrade", "victory", "defeat"].includes(g.phase)) {
@@ -101,15 +102,23 @@ export class UI {
       for (const [id, n] of [
         ["hpbar", p.hp / p.maxHp],
         ["epbar", p.essence / p.maxEssence],
-        ["xpbar", p.xp / xpFor(p.level)],
+        ["xpbar", xpProgress(p.xp, xpFor(p.level))],
       ] as const)
         document.getElementById(id)!.style.width = `${n * 100}%`;
       set("toast", g.toastTime > 0 ? g.toast : "");
       set("claw-stats", `${p.damage.toFixed(1)} DANO`);
+      set("xp-level", `NÍVEL ${p.level}`);
+      set("xp-count", `${Math.floor(p.xp)} / ${xpFor(p.level)} XP`);
       set(
-        "xp-info",
-        `XP ${Math.floor(p.xp)} / ${xpFor(p.level)} · COLETA ${pickupRadius(p, g.scent > 0).toFixed(1)} m`,
+        "xp-gain",
+        g.xpFeedback > 0
+          ? `+${Number(g.lastXP.toFixed(1)).toLocaleString("pt-BR")} XP`
+          : "",
       );
+      const xpMeter = document.getElementById("xp-meter")!;
+      xpMeter.setAttribute("aria-valuenow", String(Math.floor(p.xp)));
+      xpMeter.setAttribute("aria-valuemax", String(xpFor(p.level)));
+      xpMeter.title = `Raio de coleta: ${pickupRadius(p, g.scent > 0).toFixed(1)} m`;
       (Object.keys(SKILLS) as Skill[]).forEach((k, i) => {
         const el = document.getElementById("skill-" + i)!;
         const learned = p.skills[k] > 0;

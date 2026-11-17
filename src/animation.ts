@@ -8,47 +8,12 @@ export const frames = Array.from({ length: 6 }, (_, row) =>
     duration: row === 5 ? 0.12 : 0.14,
   })),
 );
-function canvasTexture(c: HTMLCanvasElement) {
-  const t = new T.CanvasTexture(c);
-  t.magFilter = T.NearestFilter;
-  t.minFilter = T.NearestFilter;
-  t.colorSpace = T.SRGBColorSpace;
-  return t;
-}
 export function wolfAtlas() {
   const t = new T.TextureLoader().load("/wolf-atlas.png");
   t.magFilter = T.NearestFilter;
   t.minFilter = T.NearestFilter;
   t.colorSpace = T.SRGBColorSpace;
   return t;
-}
-export function enemyTexture(kind: number) {
-  const c = document.createElement("canvas");
-  c.width = 48;
-  c.height = 56;
-  const g = c.getContext("2d")!;
-  g.fillStyle = kind === 1 ? "#98d9d3" : kind === 2 ? "#604c58" : "#6b7950";
-  g.beginPath();
-  g.moveTo(24, 2);
-  g.lineTo(39, 16);
-  g.lineTo(36, 38);
-  g.lineTo(46, 51);
-  g.lineTo(30, 47);
-  g.lineTo(23, 55);
-  g.lineTo(16, 46);
-  g.lineTo(2, 50);
-  g.lineTo(12, 33);
-  g.lineTo(9, 16);
-  g.closePath();
-  g.fill();
-  g.fillStyle = kind === 1 ? "#d4ffdb" : "#bd657d";
-  g.fillRect(14, 18, 6, 5);
-  g.fillRect(29, 18, 6, 5);
-  g.fillStyle = "#292c2b";
-  g.fillRect(18, 30, 13, 5);
-  g.fillStyle = "#a6aa76";
-  for (let i = 0; i < 4; i++) g.fillRect(9 + i * 9, 37, 3, 10);
-  return canvasTexture(c);
 }
 export class Animator {
   texture: T.Texture;

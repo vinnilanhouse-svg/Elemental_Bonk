@@ -14,7 +14,10 @@ import {
 import { World } from "./map";
 import { Camera } from "./camera";
 import { Input } from "./input";
-import { Animator, wolfAtlas, enemyTexture } from "./animation";
+import { Animator, wolfAtlas } from "./animation";
+import { EnemyAnimator, type EnemyAsset } from "./enemy-animation";
+import { enemyDirection, ENEMY_DEATH_DURATION } from "./enemy-animation-state";
+import { XP_DROP_TIME, xpDropHeight, xpFragment, xpLabelTexture } from "./xp";
 import { Audio } from "./audio";
 import { load, store } from "./save";
 import { targetsInArc } from "./combat";
@@ -40,8 +43,11 @@ export class Game {
   enemies: Enemy[] = [];
   projectiles: Projectile[] = [];
   gems: Gem[] = [];
+  xpLabel = xpLabelTexture();
+  xpFeedback = 0;
+  lastXP = 0;
   effects: Effect[] = [];
-  textures = [enemyTexture(0), enemyTexture(1), enemyTexture(2)];
+  corpses: Enemy[] = [];
   phase = "menu";
   time = 0;
   spawnClock = 0;
@@ -65,7 +71,10 @@ export class Game {
   upgradeChoices: UpgradeChoice[] = [];
   inventory: UpgradeChoice[] = [];
   attackHeading: Point = { x: 0, z: 1 };
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    public enemyAssets: EnemyAsset[],
+  ) {
     this.renderer = new T.WebGLRenderer({
       canvas,
       antialias: false,
@@ -129,11 +138,14 @@ export class Game {
     this.renderer.shadowMap.enabled = this.save.quality === "alta";
   }
   clear() {
-    for (const e of this.enemies) this.world.scene.remove(e.mesh);
+    for (const e of new Set([...this.enemies, ...this.corpses])) {
+      this.world.scene.remove(e.mesh);
+      e.anim.dispose();
+    }
+    this.corpses = [];
     for (const a of [...this.projectiles, ...this.gems, ...this.effects]) {
       this.world.scene.remove(a.mesh);
-      a.mesh.geometry.dispose();
-      (a.mesh.material as T.Material).dispose();
+      this.disposeTransient(a.mesh);
     }
     this.enemies = [];
     this.projectiles = [];
@@ -145,6 +157,8 @@ export class Game {
     this.player = freshPlayer();
     this.time = 0;
     this.spawnClock = 1;
+    this.xpFeedback = 0;
+    this.lastXP = 0;
     this.attackClock = 0;
     this.invuln = 0;
     this.fury = 0;
@@ -158,6 +172,7 @@ export class Game {
     this.inventory = [];
     this.upgradeChoices = [];
     this.attackHeading = { x: 0, z: 1 };
+    this.id = 0;
     this.boss = undefined;
     this.bossSpawned = false;
     this.phase = "playing";
@@ -292,7 +307,7 @@ export class Game {
     }
   }
   spawn(kind: number, point?: Point) {
-    if (this.enemies.length >= CFG.maxEnemies) return;
+    if (this.enemies.filter((e) => !e.dead).length >= CFG.maxEnemies) return;
     let p = point;
     for (let i = 0; !p && i < 40; i++) {
       const a = Math.random() * Math.PI * 2,
@@ -322,14 +337,14 @@ export class Game {
       [38, 25, 100, 2100][kind] * (kind === 3 ? 1 : 1 + this.time / 800);
     const mesh = new T.Sprite(
       new T.SpriteMaterial({
-        map: this.textures[kind === 3 ? 2 : kind],
+        map: this.enemyAssets[kind].texture,
         transparent: true,
-        alphaTest: 0.3,
-        color: kind === 3 ? 0xd4a1b5 : 0xffffff,
+        alphaTest: 110 / 255,
+        color: 0xffffff,
       }),
     );
-    const scale = kind === 3 ? 4.3 : kind === 2 ? 2.3 : 1.6;
-    mesh.scale.set(scale, scale * 1.15, 1);
+    const anim = new EnemyAnimator(mesh, this.enemyAssets[kind]);
+    mesh.position.set(p.x, heightAt(p.x, p.z), p.z);
     this.world.scene.add(mesh);
     const enemy: Enemy = {
       ...p,
@@ -344,6 +359,11 @@ export class Game {
       hit: 0,
       mesh,
       dead: false,
+      anim,
+      facing: normalize(this.player.x - p.x, this.player.z - p.z),
+      action: 0,
+      attackMode: "melee",
+      bossPattern: 0,
       navClock: 0,
     };
     this.enemies.push(enemy);
@@ -357,24 +377,25 @@ export class Game {
     if (e.hp <= 0) {
       e.dead = true;
       this.player.kills++;
-      this.world.scene.remove(e.mesh);
-      const mesh = new T.Mesh(
-        new T.OctahedronGeometry(0.19),
-        new T.MeshStandardMaterial({
-          color: 0xd5e4a0,
-          emissive: 0x71813e,
-          emissiveIntensity: 0.6,
-        }),
-      );
-      mesh.position.set(e.x, heightAt(e.x, e.z) + 0.3, e.z);
+      e.anim.set("death");
+      e.mesh.material.color.set(0xffffff);
+      e.mesh.material.rotation = 0;
+      this.corpses.push(e);
+      if (this.corpses.length > 24) {
+        const old = this.corpses.shift()!;
+        this.world.scene.remove(old.mesh);
+        old.anim.dispose();
+      }
+      const mesh = xpFragment(ENEMY_XP[e.kind], this.xpLabel);
+      mesh.position.set(e.x, heightAt(e.x, e.z) + 0.28, e.z);
       this.world.scene.add(mesh);
-      this.gems.push({ x: e.x, z: e.z, value: ENEMY_XP[e.kind], mesh });
+      this.effect(e.x, e.z, 0xd5ed97, 0.4, 0.35, 1);
+      this.gems.push({ x: e.x, z: e.z, value: ENEMY_XP[e.kind], age: 0, mesh });
       if (this.gems.length > 240) {
         const old = this.gems.shift()!;
         this.gems[0].value += old.value;
         this.world.scene.remove(old.mesh);
-        old.mesh.geometry.dispose();
-        (old.mesh.material as T.Material).dispose();
+        this.disposeTransient(old.mesh);
       }
       if (e.kind === 3) this.finish(true);
     }
@@ -452,8 +473,10 @@ export class Game {
     const attackImpact =
       this.attackAnim > this.attackDuration * 0.5 &&
       Math.max(0, this.attackAnim - dt) <= this.attackDuration * 0.5;
+    this.updateCorpses(dt);
     this.time += dt;
     this.toastTime -= dt;
+    this.xpFeedback = Math.max(0, this.xpFeedback - dt);
     this.invuln = Math.max(0, this.invuln - dt);
     this.fury = Math.max(0, this.fury - dt);
     this.scent = Math.max(0, this.scent - dt);
@@ -537,9 +560,12 @@ export class Game {
     }
     for (const e of this.enemies) {
       if (e.dead) continue;
+      const oldX = e.x,
+        oldZ = e.z;
       e.cooldown -= dt;
       e.slow = Math.max(0, e.slow - dt);
       e.hit = Math.max(0, e.hit - dt);
+      e.action = Math.max(0, e.action - dt);
       const d = distance(e, p);
       if (!e.nav || e.navClock <= 0) {
         e.nav = nextWaypoint(e, p, this.world.obstacles);
@@ -551,31 +577,54 @@ export class Game {
         (d < 3 ? p.z : e.nav.z) - e.z,
       );
       if (e.windup > 0) {
-        e.windup -= dt;
-        if (e.windup <= 0) {
-          if (e.kind === 3) {
-            if (d < 5) this.hurt(35);
+        e.windup = Math.max(0, e.windup - dt);
+        if (e.windup === 0) {
+          e.action =
+            e.attackMode === "volley" || e.attackMode === "summon" ? 0.5 : 0.26;
+          if (e.attackMode === "ranged")
+            this.shoot(e, Math.atan2(p.z - e.z, p.x - e.x));
+          else if (e.attackMode === "volley")
             for (let i = 0; i < 12; i++) this.shoot(e, (i * Math.PI) / 6);
+          else if (e.attackMode === "summon")
             for (let i = 0; i < 2; i++)
               this.spawn(0, { x: e.x + 3 + i * 2, z: e.z + 3 });
-          } else if (d < 2.8) this.hurt(25);
+          else if (d < (e.kind === 3 ? 5 : e.kind === 2 ? 2.8 : 1.9))
+            this.hurt(e.kind === 3 ? 35 : e.kind === 2 ? 25 : 10);
         }
+      } else if (e.action > 0) {
+        // Finish the visible strike before locomotion resumes.
       } else if (e.kind === 1 && d < 11) {
         if (e.cooldown <= 0) {
-          this.shoot(e, Math.atan2(v.z, v.x));
+          e.windup = 0.36;
           e.cooldown = 2.2;
-        }
-        if (d < 5) move(e, -v.x * dt, -v.z * dt, this.world.obstacles);
+          e.attackMode = "ranged";
+          e.facing = normalize(p.x - e.x, p.z - e.z);
+        } else if (d < 5) move(e, -v.x * dt, -v.z * dt, this.world.obstacles);
       } else if (
         (e.kind === 3 || e.kind === 2) &&
         d < (e.kind === 3 ? 8 : 2.5) &&
         e.cooldown <= 0
       ) {
+        e.attackMode =
+          e.kind === 3
+            ? (["slam", "volley", "summon"] as const)[e.bossPattern++ % 3]
+            : "melee";
         e.windup = e.kind === 3 ? 1.3 : 0.8;
         e.cooldown = e.kind === 3 ? 4 : 2.5;
-        this.effect(e.x, e.z, 0xd77b74, e.kind === 3 ? 5 : 2.8, e.windup, 0);
+        e.facing = normalize(p.x - e.x, p.z - e.z);
+        if (e.attackMode === "melee" || e.attackMode === "slam")
+          this.effect(e.x, e.z, 0xd77b74, e.kind === 3 ? 5 : 2.8, e.windup, 0);
+        else
+          this.effect(
+            e.x,
+            e.z,
+            e.attackMode === "summon" ? 0xa9c58a : 0xbe98d6,
+            1,
+            e.windup,
+            1,
+          );
       } else {
-        if (d > 1.3)
+        if (d > 1.3) {
           move(
             e,
             v.x * e.speed * dt * (e.slow > 0 ? 0.4 : 1),
@@ -583,23 +632,34 @@ export class Game {
             this.world.obstacles,
             0.45,
           );
+          e.facing = v;
+        }
         if (d < 1.7 && e.cooldown <= 0) {
-          this.hurt(e.kind === 2 ? 25 : 10);
+          e.windup = 0.24;
+          e.attackMode = "melee";
           e.cooldown = CFG.enemyInterval;
+          e.facing = normalize(p.x - e.x, p.z - e.z);
         }
       }
-      e.mesh.position.set(e.x, heightAt(e.x, e.z) + e.mesh.scale.y / 2, e.z);
-      e.mesh.material.color.set(
-        e.hit > 0
-          ? 0xffd6a3
-          : this.scent > 0
-            ? 0xc9ffb9
-            : e.kind === 3
-              ? 0xc59bad
-              : 0xffffff,
+      e.anim.direction = enemyDirection(e.facing.x, e.facing.z);
+      e.anim.set(
+        e.windup > 0
+          ? "windup"
+          : e.action > 0
+            ? e.attackMode === "volley" || e.attackMode === "summon"
+              ? "cast"
+              : "attack"
+            : e.hit > 0
+              ? "hurt"
+              : Math.hypot(e.x - oldX, e.z - oldZ) > 0.001
+                ? "walk"
+                : "idle",
       );
-      e.mesh.material.rotation =
-        e.windup > 0 ? Math.sin(this.time * 25) * 0.07 : 0;
+      e.anim.update(dt);
+      e.mesh.position.set(e.x, heightAt(e.x, e.z), e.z);
+      e.mesh.material.color.set(
+        e.hit > 0 ? 0xffd6a3 : this.scent > 0 ? 0xc9ffb9 : 0xffffff,
+      );
     }
     this.enemies = this.enemies.filter((e) => !e.dead);
     for (const b of this.projectiles) {
@@ -621,10 +681,15 @@ export class Game {
       return false;
     });
     for (const gem of this.gems) {
+      gem.age += dt;
       const d = distance(gem, p);
       gem.mesh.rotation.y += dt * 2;
-      gem.mesh.scale.setScalar(this.scent > 0 ? 1.6 : 1);
-      if (d <= pickupRadius(p, this.scent > 0)) gem.attracted = true;
+      gem.mesh.scale.setScalar(
+        (this.scent > 0 ? 1.6 : 1) * Math.min(1, 0.45 + gem.age * 4),
+      );
+      gem.mesh.position.y = heightAt(gem.x, gem.z) + xpDropHeight(gem.age);
+      if (gem.age >= XP_DROP_TIME && d <= pickupRadius(p, this.scent > 0))
+        gem.attracted = true;
       if (gem.attracted) {
         const v = normalize(p.x - gem.x, p.z - gem.z);
         const step = Math.min(d, dt * 12);
@@ -632,8 +697,11 @@ export class Game {
         gem.z += v.z * step;
         gem.mesh.position.set(gem.x, heightAt(gem.x, gem.z) + 0.3, gem.z);
       }
-      if (distance(gem, p) < 0.6) {
-        p.xp += gem.value * (1 + p.xpBonus);
+      if (gem.age >= XP_DROP_TIME && distance(gem, p) < 0.6) {
+        const gained = gem.value * (1 + p.xpBonus);
+        p.xp += gained;
+        this.lastXP = gained;
+        this.xpFeedback = 0.9;
         gem.value = 0;
         this.audio.play("collect");
       }
@@ -641,8 +709,7 @@ export class Game {
     this.gems = this.gems.filter((g) => {
       if (g.value) return true;
       this.world.scene.remove(g.mesh);
-      g.mesh.geometry.dispose();
-      (g.mesh.material as T.Material).dispose();
+      this.disposeTransient(g.mesh);
       return false;
     });
     for (const e of this.effects) {
@@ -680,10 +747,32 @@ export class Game {
                 : "idle",
       );
   }
+  private disposeTransient(mesh: T.Mesh) {
+    mesh.traverse((child) => {
+      if (child instanceof T.Mesh) child.geometry.dispose();
+      if (child instanceof T.Mesh || child instanceof T.Sprite)
+        (child.material as T.Material).dispose();
+    });
+  }
+  updateCorpses(dt: number) {
+    this.corpses = this.corpses.filter((e) => {
+      e.anim.update(dt);
+      e.mesh.material.opacity = Math.min(
+        1,
+        Math.max(0, (ENEMY_DEATH_DURATION - e.anim.time) / 0.15),
+      );
+      if (e.anim.time < ENEMY_DEATH_DURATION) return true;
+      this.world.scene.remove(e.mesh);
+      e.anim.dispose();
+      return false;
+    });
+  }
   loop = (now: number) => {
     const dt = Math.min((now - this.last) / 1000 || 0, 0.05);
     this.last = now;
     if (this.phase === "playing") this.update(dt);
+    else if (this.phase === "victory" || this.phase === "defeat")
+      this.updateCorpses(dt);
     this.hero.position.set(
       this.player.x,
       heightAt(this.player.x, this.player.z),
