@@ -7,8 +7,8 @@ import {
   canMove,
   inCone,
   freshPlayer,
-  validUpgrades,
 } from "../src/logic";
+import { validRewards } from "../src/progression";
 import { skillAvailability } from "../src/skills";
 test("diagonal movement has unit length", () =>
   assert.equal(Math.hypot(...Object.values(normalize(1, 1))), 1));
@@ -38,5 +38,5 @@ test("restart creates independent full state; capped upgrades excluded", () => {
   const a = freshPlayer();
   a.hp = 1;
   assert.equal(freshPlayer().hp, 120);
-  assert.ok(!validUpgrades({ hp: 5 }).some((u) => u.id === "hp"));
+  assert.ok(!validRewards({ hp: 5 }, freshPlayer()).some((u) => u.id === "hp"));
 });

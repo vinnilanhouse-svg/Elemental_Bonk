@@ -907,3 +907,220 @@ body {
 .modal-shade {
   pointer-events: auto;
 }
+/* Automatic loadout and rarity-based rewards. Rarity is always named in text. */
+.skill {
+  cursor: default;
+  justify-content: flex-start;
+  padding: 12px 4px 6px;
+  min-height: 100px;
+  height: auto;
+}
+.skill-mode {
+  font: 6px monospace;
+  letter-spacing: 0.5px;
+  color: #bdc5a7;
+}
+.skill-icon {
+  font-size: 23px;
+  line-height: 25px;
+}
+.skill em {
+  position: static;
+  min-height: 13px;
+  font: 8px monospace;
+  text-shadow: none;
+  color: #e2d5ab;
+}
+.skill.locked .skill-icon {
+  opacity: 0.15;
+}
+.skill.locked em {
+  font-size: 6px;
+  letter-spacing: 0.4px;
+  color: #97a38d;
+}
+.skill.basic-attack {
+  border-color: #cbbb86;
+}
+.skill.basic-attack small {
+  color: #d6c38c;
+}
+.rarity-common {
+  --rarity: #c4cebc;
+}
+.rarity-uncommon {
+  --rarity: #a8d18c;
+}
+.rarity-rare {
+  --rarity: #85bbeb;
+}
+.rarity-epic {
+  --rarity: #c1a0e7;
+}
+.rarity-legendary {
+  --rarity: #edc66c;
+}
+.modal.wide {
+  width: min(900px, 95vw);
+  max-width: 900px;
+}
+.upgrades button {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-color: var(--rarity);
+  border-top-width: 3px;
+  min-height: 295px;
+  position: relative;
+}
+.upgrades button:hover {
+  border-color: var(--rarity);
+  box-shadow: 0 0 20px #c3bc7b22;
+}
+.upgrades .loot-type {
+  font: 8px monospace;
+  color: #b3c1a3;
+  letter-spacing: 1px;
+}
+.upgrades .loot-rarity {
+  font: 600 12px sans-serif;
+  color: var(--rarity);
+}
+.upgrades h3 {
+  margin: 8px 0 0;
+  font-size: 21px;
+}
+.upgrades .loot-quality {
+  font: 8px monospace;
+  color: #cdd3bb;
+}
+.upgrades p {
+  margin: 0;
+  flex: 1;
+  font-size: 12px;
+}
+.upgrades .loot-numbers {
+  flex: 0;
+  font: 9px monospace;
+  color: #d1d8bf;
+  line-height: 1.6;
+}
+.upgrades .loot-rank {
+  font: 8px monospace;
+  color: #a9b89c;
+}
+.upgrades b {
+  margin-top: 8px;
+  color: var(--rarity);
+}
+.inventory {
+  margin-top: 20px;
+  border-top: 1px solid #71825e55;
+  padding-top: 10px;
+}
+.inventory h3 {
+  font-size: 12px;
+  color: #d7d9bd;
+}
+.inventory ul {
+  list-style: none;
+  padding: 0;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.inventory li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #8a9d6333;
+  font-size: 10px;
+}
+.inventory li b {
+  color: var(--rarity);
+}
+.inventory li span {
+  font-size: 8px;
+  color: #b2bfa5;
+}
+.auto-hint > span {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .skill {
+    min-height: 70px;
+    padding: 5px 3px;
+  }
+  .skill-mode {
+    font-size: 5px;
+  }
+  .skill-icon {
+    font-size: 19px;
+    line-height: 20px;
+  }
+  .skill em {
+    font-size: 7px;
+    min-height: 9px;
+  }
+  .skill small {
+    font-size: 5px;
+  }
+  .skills {
+    grid-template-columns: repeat(2, 66px);
+    bottom: 40px;
+    gap: 6px;
+  }
+  .skill {
+    width: 66px;
+  }
+  .skill.basic-attack {
+    grid-column: 1/-1;
+    width: 100%;
+    min-height: 55px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+  .skill.basic-attack .skill-icon {
+    grid-row: 1/3;
+    grid-column: 1;
+    font-size: 25px;
+  }
+  .skill.basic-attack .skill-mode {
+    display: none;
+  }
+  .upgrades {
+    gap: 10px;
+  }
+  .upgrades button {
+    min-height: 180px;
+    gap: 6px;
+    padding: 14px;
+  }
+  .upgrades h3 {
+    font-size: 18px;
+    margin: 0;
+  }
+  .modal.wide {
+    max-height: 92dvh;
+  }
+  .modal-shade {
+    overflow-y: auto;
+  }
+  .upgrades .loot-rarity {
+    position: absolute;
+    right: 14px;
+    top: 14px;
+  }
+  .auto-hint {
+    display: block;
+    font-size: 6px;
+    bottom: 18px;
+    left: 24px;
+    transform: none;
+    padding: 4px;
+  }
+  .credit {
+    display: none;
+  }
+}

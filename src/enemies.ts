@@ -22,5 +22,5 @@ export type Projectile = Point & {
   damage: number;
   mesh: T.Mesh;
 };
-export type Gem = Point & { value: number; mesh: T.Mesh };
+export type Gem = Point & { value: number; attracted?: boolean; mesh: T.Mesh };
 export type Effect = { mesh: T.Mesh; life: number; max: number; grow: number };

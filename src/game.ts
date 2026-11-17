@@ -1,6 +1,6 @@
 import * as T from "three";
 import { nextWaypoint } from "./navigation";
-import { CFG, SKILLS, type Skill } from "./config";
+import { CFG, SKILLS, ENEMY_XP, type Skill } from "./config";
 import {
   freshPlayer,
   canMove,
@@ -9,7 +9,6 @@ import {
   distance,
   normalize,
   xpFor,
-  validUpgrades,
   type Point,
 } from "./logic";
 import { World } from "./map";
@@ -19,7 +18,13 @@ import { Animator, wolfAtlas, enemyTexture } from "./animation";
 import { Audio } from "./audio";
 import { load, store } from "./save";
 import { targetsInArc } from "./combat";
-import { skillAvailability } from "./skills";
+import { autoSkillReady } from "./skills";
+import {
+  rollChoices,
+  applyChoice,
+  pickupRadius,
+  type UpgradeChoice,
+} from "./progression";
 import type { Enemy, Projectile, Gem, Effect } from "./enemies";
 export class Game {
   world = new World();
@@ -30,6 +35,7 @@ export class Game {
   renderer: T.WebGLRenderer;
   player = freshPlayer();
   hero: T.Sprite;
+  collector: T.Mesh;
   anim: Animator;
   enemies: Enemy[] = [];
   projectiles: Projectile[] = [];
@@ -44,6 +50,7 @@ export class Game {
   fury = 0;
   scent = 0;
   attackAnim = 0;
+  attackDuration = 0.3;
   howl = 0;
   heading: Point = { x: 0, z: 1 };
   cooldowns: Record<Skill, number> = { q: 0, e: 0, r: 0, " ": 0 };
@@ -55,7 +62,9 @@ export class Game {
   onUI: () => void = () => {};
   toast = "";
   toastTime = 0;
-  upgradeChoices = validUpgrades({});
+  upgradeChoices: UpgradeChoice[] = [];
+  inventory: UpgradeChoice[] = [];
+  attackHeading: Point = { x: 0, z: 1 };
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new T.WebGLRenderer({
       canvas,
@@ -71,6 +80,18 @@ export class Game {
     this.hero.scale.set(2.3, 2.3, 1);
     this.hero.center.set(0.5, 16 / 256);
     this.world.scene.add(this.hero);
+    this.collector = new T.Mesh(
+      new T.RingGeometry(0.985, 1, 64),
+      new T.MeshBasicMaterial({
+        color: 0xc4d4a4,
+        transparent: true,
+        opacity: 0.18,
+        depthWrite: false,
+        side: T.DoubleSide,
+      }),
+    );
+    this.collector.rotation.x = -Math.PI / 2;
+    this.world.scene.add(this.collector);
     this.anim = new Animator(this.hero, wolfAtlas());
     this.resize();
     this.camera.follow(0, 0, 4, 0, true);
@@ -79,7 +100,7 @@ export class Game {
       if (k === "escape") {
         if (this.phase === "playing") this.pause();
         else if (this.phase === "paused") this.resume();
-      } else if (k in SKILLS) this.skill(k as Skill);
+      }
     };
     window.addEventListener("resize", () => this.resize());
     document.addEventListener("visibilitychange", () => {
@@ -129,10 +150,14 @@ export class Game {
     this.fury = 0;
     this.scent = 0;
     this.attackAnim = 0;
+    this.attackDuration = 0.3;
     this.howl = 0;
     this.heading = { x: 0, z: 1 };
     this.cooldowns = { q: 0, e: 0, r: 0, " ": 0 };
     this.levels = {};
+    this.inventory = [];
+    this.upgradeChoices = [];
+    this.attackHeading = { x: 0, z: 1 };
     this.boss = undefined;
     this.bossSpawned = false;
     this.phase = "playing";
@@ -185,32 +210,21 @@ export class Game {
     this.world.scene.add(mesh);
     this.effects.push({ mesh, life, max: life, grow });
   }
-  skill(key: Skill) {
-    if (this.phase !== "playing") return;
-    const problem = skillAvailability(
-      key,
-      this.player.essence,
-      this.cooldowns[key],
-    );
-    if (problem) {
-      this.message(problem);
-      return;
-    }
-    const s = SKILLS[key];
-    this.player.essence -= s.cost;
-    this.cooldowns[key] = s.cooldown * this.player.cooldown;
+  private activateSkill(key: Skill, target: Enemy) {
+    const p = this.player,
+      s = SKILLS[key],
+      power = 1 + p.skillPower[key];
+    p.essence -= s.cost;
+    this.cooldowns[key] = s.cooldown * p.cooldown;
     if (key === "q") {
-      for (const e of targetsInArc(
-        this.enemies,
-        this.player,
-        this.heading,
-        6 * this.player.power,
-      )) {
-        this.damage(e, 28 * this.player.power);
+      const heading = normalize(target.x - p.x, target.z - p.z);
+      if (this.attackAnim <= 0) this.heading = heading;
+      for (const e of targetsInArc(this.enemies, p, heading, s.range * power)) {
+        this.damage(e, s.damage * power);
         move(
           e,
-          this.heading.x * 3 * this.player.power,
-          this.heading.z * 3 * this.player.power,
+          heading.x * 3 * power,
+          heading.z * 3 * power,
           this.world.obstacles,
           e.kind === 3 ? 1 : 0.45,
         );
@@ -218,37 +232,63 @@ export class Game {
       }
       for (let i = 1; i < 6; i++)
         this.effect(
-          this.player.x + this.heading.x * i,
-          this.player.z + this.heading.z * i,
+          p.x + heading.x * i,
+          p.z + heading.z * i,
           0xd6e8cd,
           0.3 + i * 0.16,
           0.45,
           2,
         );
       this.audio.play("claw");
+    } else {
+      // Utility instincts also deliver their own automatic pulse/counterattack.
+      for (const e of this.enemies)
+        if (!e.dead && distance(p, e) <= s.range)
+          this.damage(e, s.damage * power);
+      if (key === "e") {
+        this.scent = s.duration * power;
+        this.effect(p.x, p.z, 0xb8cf83, 1, 0.8, 10);
+      }
+      if (key === "r") {
+        this.fury = s.duration * power;
+        this.howl = 0.7;
+        this.audio.play("howl");
+        this.effect(p.x, p.z, 0xe1b16d, 1, 0.7, 5);
+      }
+      if (key === " ") {
+        const input = this.input.direction();
+        const d =
+          input.x || input.z
+            ? input
+            : normalize(p.x - target.x, p.z - target.z);
+        move(
+          p,
+          d.x * CFG.dashDistance * power,
+          d.z * CFG.dashDistance * power,
+          this.world.obstacles,
+        );
+        this.invuln = Math.max(this.invuln, CFG.dashInvulnerability * power);
+        this.effect(p.x, p.z, 0xf7efc8, 0.6, 0.3, 1);
+      }
     }
-    if (key === "e") {
-      this.scent = s.duration;
-      this.effect(this.player.x, this.player.z, 0xb8cf83, 1, 0.8, 10);
-      this.message("FARO · Losangos: fragmentos / Silhuetas: ameaças");
-    }
-    if (key === "r") {
-      this.fury = s.duration;
-      this.howl = 0.7;
-      this.audio.play("howl");
-      this.effect(this.player.x, this.player.z, 0xe1b16d, 1, 0.7, 5);
-    }
-    if (key === " ") {
-      const dir = this.input.direction();
-      const d = dir.x || dir.z ? dir : this.heading;
-      move(
-        this.player,
-        d.x * CFG.dashDistance,
-        d.z * CFG.dashDistance,
-        this.world.obstacles,
-      );
-      this.invuln = CFG.dashInvulnerability;
-      this.effect(this.player.x, this.player.z, 0xf7efc8, 0.6, 0.3, 1);
+  }
+  private autoSkills() {
+    for (const key of Object.keys(SKILLS) as Skill[]) {
+      if (!autoSkillReady(key, this.player, this.cooldowns[key], 0)) continue;
+      const target = this.enemies
+        .filter((e) => !e.dead)
+        .sort((a, b) => distance(this.player, a) - distance(this.player, b))[0];
+      if (!target) break;
+      if (
+        autoSkillReady(
+          key,
+          this.player,
+          this.cooldowns[key],
+          distance(this.player, target),
+        )
+      )
+        this.activateSkill(key, target);
+      if (this.phase !== "playing") break;
     }
   }
   spawn(kind: number, point?: Point) {
@@ -328,7 +368,7 @@ export class Game {
       );
       mesh.position.set(e.x, heightAt(e.x, e.z) + 0.3, e.z);
       this.world.scene.add(mesh);
-      this.gems.push({ x: e.x, z: e.z, value: e.kind === 2 ? 10 : 5, mesh });
+      this.gems.push({ x: e.x, z: e.z, value: ENEMY_XP[e.kind], mesh });
       if (this.gems.length > 240) {
         const old = this.gems.shift()!;
         this.gems[0].value += old.value;
@@ -341,7 +381,10 @@ export class Game {
   }
   hurt(amount: number) {
     if (this.invuln > 0) return;
-    this.player.hp = Math.max(0, this.player.hp - amount);
+    this.player.hp = Math.max(
+      0,
+      this.player.hp - amount * (1 - this.player.armor),
+    );
     this.invuln = CFG.invulnerability;
     this.anim.set("hurt");
     this.audio.play("hurt");
@@ -385,37 +428,30 @@ export class Game {
       return;
     this.levels[id] = (this.levels[id] || 0) + 1;
     const p = this.player;
-    if (id === "hp") {
-      p.maxHp += 25;
-      p.hp = Math.min(p.maxHp, p.hp + 40);
-    }
-    if (id === "damage") p.damage += CFG.damage * 0.2;
-    if (id === "attack") p.attack += 0.12;
-    if (id === "speed") p.speed += CFG.speed * 0.08;
-    if (id === "collect") p.collect += CFG.collect * 0.35;
-    if (id === "cooldown") p.cooldown *= 0.9;
-    if (id === "essence") {
-      p.maxEssence += 20;
-      p.essence += 20;
-    }
-    if (id === "power") p.power += 0.3;
+    const choice = this.upgradeChoices.find((u) => u.id === id)!;
+    applyChoice(p, choice);
+    this.inventory.push(choice);
     this.phase = "playing";
     this.checkLevel();
     this.onUI();
   }
   checkLevel() {
-    if (this.player.xp < xpFor(this.player.level)) return;
-    const options = validUpgrades(this.levels);
-    if (!options.length) return;
+    if (this.phase !== "playing" || this.player.xp < xpFor(this.player.level))
+      return;
+    const options = rollChoices(this.levels, this.player);
     this.player.xp -= xpFor(this.player.level);
     this.player.level++;
-    this.upgradeChoices = options.sort(() => Math.random() - 0.5).slice(0, 3);
+    this.upgradeChoices = options;
     this.phase = "upgrade";
     this.audio.play("level");
     this.onUI();
   }
   update(dt: number) {
+    if (this.phase !== "playing") return;
     const p = this.player;
+    const attackImpact =
+      this.attackAnim > this.attackDuration * 0.5 &&
+      Math.max(0, this.attackAnim - dt) <= this.attackDuration * 0.5;
     this.time += dt;
     this.toastTime -= dt;
     this.invuln = Math.max(0, this.invuln - dt);
@@ -425,7 +461,8 @@ export class Game {
     this.attackAnim = Math.max(0, this.attackAnim - dt);
     for (const k of Object.keys(SKILLS) as Skill[])
       this.cooldowns[k] = Math.max(0, this.cooldowns[k] - dt);
-    p.essence = Math.min(p.maxEssence, p.essence + CFG.regen * dt);
+    p.essence = Math.min(p.maxEssence, p.essence + p.essenceRegen * dt);
+    p.hp = Math.min(p.maxHp, p.hp + p.recovery * dt);
     const dir = this.input.direction();
     if (dir.x || dir.z) {
       if (this.attackAnim <= 0) this.heading = dir;
@@ -459,29 +496,39 @@ export class Game {
       this.spawn(3, { x: 0, z: this.player.z > 0 ? -6 : 6 });
       this.message("ANOMALIA CRÍTICA · Coração da Corrupção");
     }
+    this.autoSkills();
+    if (this.phase !== "playing") return;
     this.attackClock -= dt;
-    if (this.attackClock <= 0) {
+    if (this.attackClock <= 0 && this.attackAnim <= 0 && !attackImpact) {
       const target = this.enemies
-        .filter((e) => !e.dead && distance(p, e) < CFG.range)
+        .filter((e) => !e.dead && distance(p, e) < p.range)
         .sort((a, b) => distance(p, a) - distance(p, b))[0];
       if (target) {
         this.heading = normalize(target.x - p.x, target.z - p.z);
+        this.attackHeading = { ...this.heading };
         this.attackClock =
-          CFG.attackInterval / p.attack / (this.fury > 0 ? 1.65 : 1);
-        this.attackAnim = 0.3;
+          CFG.attackInterval /
+          p.attack /
+          (this.fury > 0 ? 1 + 0.65 * (1 + p.skillPower.r) : 1);
+        this.attackDuration = Math.min(0.3, this.attackClock * 0.9);
+        this.attackAnim = this.attackDuration;
         this.audio.play("claw");
       }
     } // Impact occurs on the extended pose, once per animation.
-    if (
-      this.attackAnim > 0 &&
-      this.attackAnim <= 0.16 &&
-      this.attackAnim + dt > 0.16
-    ) {
-      for (const e of targetsInArc(this.enemies, p, this.heading, CFG.range))
-        this.damage(e, p.damage * (this.fury > 0 ? 1.7 : 1));
+    if (attackImpact) {
+      for (const e of targetsInArc(
+        this.enemies,
+        p,
+        this.attackHeading,
+        p.range,
+      ))
+        this.damage(
+          e,
+          p.damage * (this.fury > 0 ? 1 + 0.7 * (1 + p.skillPower.r) : 1),
+        );
       this.effect(
-        p.x + this.heading.x,
-        p.z + this.heading.z,
+        p.x + this.attackHeading.x,
+        p.z + this.attackHeading.z,
         0xf0d5a0,
         0.9,
         0.18,
@@ -577,14 +624,16 @@ export class Game {
       const d = distance(gem, p);
       gem.mesh.rotation.y += dt * 2;
       gem.mesh.scale.setScalar(this.scent > 0 ? 1.6 : 1);
-      if (d < p.collect) {
+      if (d <= pickupRadius(p, this.scent > 0)) gem.attracted = true;
+      if (gem.attracted) {
         const v = normalize(p.x - gem.x, p.z - gem.z);
-        gem.x += v.x * dt * 12;
-        gem.z += v.z * dt * 12;
+        const step = Math.min(d, dt * 12);
+        gem.x += v.x * step;
+        gem.z += v.z * step;
         gem.mesh.position.set(gem.x, heightAt(gem.x, gem.z) + 0.3, gem.z);
       }
-      if (d < 0.6) {
-        p.xp += gem.value;
+      if (distance(gem, p) < 0.6) {
+        p.xp += gem.value * (1 + p.xpBonus);
         gem.value = 0;
         this.audio.play("collect");
       }
@@ -640,13 +689,24 @@ export class Game {
       heightAt(this.player.x, this.player.z),
       this.player.z,
     );
+    this.collector.visible = ["playing", "paused", "upgrade"].includes(
+      this.phase,
+    );
+    this.collector.position.set(
+      this.player.x,
+      heightAt(this.player.x, this.player.z) + 0.04,
+      this.player.z,
+    );
+    this.collector.scale.setScalar(pickupRadius(this.player, this.scent > 0));
     this.hero.material.color.set(this.fury > 0 ? 0xffce88 : 0xffffff);
     if (
       this.phase === "playing" ||
       this.phase === "defeat" ||
       this.phase === "victory"
     )
-      this.anim.update(dt);
+      this.anim.update(
+        this.anim.state === "attack" ? (dt * 0.3) / this.attackDuration : dt,
+      );
     this.camera.follow(
       this.player.x,
       heightAt(this.player.x, this.player.z),

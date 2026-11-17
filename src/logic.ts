@@ -1,4 +1,4 @@
-import { CFG, UPGRADES } from "./config";
+import { CFG, type Skill } from "./config";
 export type Point = { x: number; z: number };
 export type Obstacle = Point & { r: number };
 export const normalize = (x: number, z: number): Point => {
@@ -51,9 +51,6 @@ export const inCone = (
   );
 };
 export const xpFor = (level: number) => 12 + level * 7;
-export function validUpgrades(levels: Record<string, number>) {
-  return UPGRADES.filter((u) => (levels[u.id] || 0) < u.max);
-}
 export function freshPlayer() {
   return {
     x: 0,
@@ -70,6 +67,14 @@ export function freshPlayer() {
     attack: 1,
     collect: CFG.collect,
     cooldown: 1,
-    power: 1,
+    range: CFG.range,
+    armor: 0,
+    recovery: 0,
+    essenceRegen: CFG.regen,
+    xpBonus: 0,
+    skills: { q: 0, e: 0, r: 0, " ": 0 } as Record<Skill, number>,
+    skillPower: { q: 0, e: 0, r: 0, " ": 0 } as Record<Skill, number>,
   };
 }
+
+export type Player = ReturnType<typeof freshPlayer>;

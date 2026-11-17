@@ -16,54 +16,53 @@ export const CFG = {
   particles: 90,
 };
 export const SKILLS = {
-  q: { name: "Sopro", cost: 25, cooldown: 9, duration: 0 },
-  e: { name: "Faro", cost: 18, cooldown: 14, duration: 6 },
-  r: { name: "Fúria", cost: 40, cooldown: 26, duration: 7 },
-  " ": { name: "Esquiva", cost: 0, cooldown: 3, duration: 0.28 },
+  q: {
+    name: "Sopro",
+    cost: 25,
+    cooldown: 9,
+    duration: 0,
+    damage: 28,
+    range: 6,
+  },
+  e: {
+    name: "Faro",
+    cost: 18,
+    cooldown: 14,
+    duration: 6,
+    damage: 12,
+    range: 7,
+  },
+  r: {
+    name: "Fúria",
+    cost: 40,
+    cooldown: 26,
+    duration: 7,
+    damage: 40,
+    range: 4,
+  },
+  " ": {
+    name: "Esquiva",
+    cost: 0,
+    cooldown: 6,
+    duration: 0.28,
+    damage: 16,
+    range: 2.5,
+  },
 };
 export type Skill = keyof typeof SKILLS;
-export const UPGRADES = [
-  {
-    id: "hp",
-    title: "Pele de ferro",
-    text: "+25 de vida máxima e recuperação",
-    max: 5,
-  },
-  {
-    id: "damage",
-    title: "Garras afiadas",
-    text: "+20% de dano das garras",
-    max: 6,
-  },
-  {
-    id: "attack",
-    title: "Instinto predador",
-    text: "+12% de velocidade de ataque",
-    max: 5,
-  },
-  { id: "speed", title: "Passos da mata", text: "+8% de movimento", max: 4 },
-  {
-    id: "collect",
-    title: "Sentidos aguçados",
-    text: "+35% de alcance de coleta",
-    max: 4,
-  },
-  {
-    id: "cooldown",
-    title: "Fôlego renovado",
-    text: "−10% nas recargas",
-    max: 4,
-  },
-  {
-    id: "essence",
-    title: "Reserva ancestral",
-    text: "+20 de Essência máxima",
-    max: 5,
-  },
-  {
-    id: "power",
-    title: "Vento ancestral",
-    text: "+30% de alcance e força do sopro",
-    max: 4,
-  },
-];
+// XP carried by one fragment per defeated creature, independent of wave time.
+export const ENEMY_XP = [5, 8, 16, 100] as const;
+export const LOOT = {
+  rarities: [
+    { id: "common", name: "Comum", weight: 55, multiplier: 1 },
+    { id: "uncommon", name: "Incomum", weight: 27, multiplier: 1.25 },
+    { id: "rare", name: "Raro", weight: 12, multiplier: 1.6 },
+    { id: "epic", name: "Épico", weight: 5, multiplier: 2 },
+    { id: "legendary", name: "Lendário", weight: 1, multiplier: 2.6 },
+  ],
+  qualities: [
+    { id: "standard", name: "Padrão", weight: 65, multiplier: 1 },
+    { id: "superior", name: "Superior", weight: 28, multiplier: 1.15 },
+    { id: "masterwork", name: "Obra-prima", weight: 7, multiplier: 1.35 },
+  ],
+};

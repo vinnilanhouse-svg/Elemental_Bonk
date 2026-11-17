@@ -1,5 +1,6 @@
 import { Game } from "./game";
 import { SKILLS, type Skill } from "./config";
+import { pickupRadius } from "./progression";
 import { xpFor } from "./logic";
 import { store } from "./save";
 export const clock = (s: number) =>
@@ -9,7 +10,7 @@ export const clock = (s: number) =>
     .toString()
     .padStart(2, "0")}`;
 const controls =
-  '<div class="control-list"><span><kbd>W A S D</kbd> / setas</span><b>Movimentar</b><span><kbd>Q</kbd> Sopro de repulsão</span><span><kbd>E</kbd> Faro</span><span><kbd>R</kbd> Fúria</span><span><kbd>ESPAÇO</kbd> Esquiva</span><span><kbd>ESC</kbd> Pausar</span><b>Garras automáticas ao se aproximar</b></div>';
+  '<div class="control-list"><span><kbd>W A S D</kbd> / setas</span><b>Movimentar</b><span><kbd>ESC</kbd></span><b>Pausar / continuar</b><span>Garras automáticas ao se aproximar</span><b>Seu único golpe inicial</b><span>Habilidades automáticas</span><b>Aprenda ao subir de nível</b></div>';
 export class UI {
   last = "";
   panel = "";
@@ -32,7 +33,6 @@ export class UI {
       if (a === "help" || a === "settings") this.panel = a;
       if (a === "back") this.panel = "";
       if (a.startsWith("upgrade:")) game.choose(a.split(":")[1]);
-      if (a.startsWith("skill:")) game.skill(a.split(":")[1] as Skill);
       this.last = "";
       this.render();
     });
@@ -57,7 +57,8 @@ export class UI {
   render() {
     const g = this.game,
       p = g.player;
-    const key = g.phase + this.panel;
+    const key =
+      g.phase + this.panel + p.level + Object.values(p.skills).join(",");
     if (key !== this.last) {
       this.last = key;
       this.root.innerHTML = `<header><div class="brand"><span class="seal">✦</span><span>G.M.S.<small>GLOBAL MONSTER SECURITY</small></span></div><div class="header-right">DIVISÃO DE CONTENÇÃO <span class="status-dot"></span> SISTEMA ONLINE</div></header><div id="screen"></div><div class="credit">G.M.S. / OPERAÇÕES DE CAMPO <span>BUILD 01 · MATA VIVA</span></div>`;
@@ -66,7 +67,7 @@ export class UI {
         screen.innerHTML = `<div class="menu-layout"><section class="intro"><div class="eyebrow">ARQUIVO DE OPERAÇÃO / 001</div><h1>MONSTRÃO<span>Uma operação da G.M.S.</span></h1><p class="intro-copy">A mata está viva.<br>Algo lá dentro também.</p><p class="brief">Anomalias foram detectadas nos arredores da base de pesquisa. Entre na mata, proteja o perímetro e contenha a origem da corrupção.</p><div class="mission-tag"><i></i> MATA VIVA <span>CONTENÇÃO · 8 MIN</span></div><button class="primary" data-action="start">INICIAR MISSÃO <span>↗</span></button><div class="menu-secondary"><button data-action="help">Como jogar <span>⌘</span></button><button data-action="settings">Configurações <span>⚙</span></button></div><div class="records"><span>RECORDE <b>${g.save.bestKills} abates</b></span><span>OPERAÇÕES CONCLUÍDAS <b>${g.save.wins.toString().padStart(2, "0")}</b></span></div></section><aside class="agent-card"><div class="eyebrow">AGENTE EM CAMPO <span>01 / 01</span></div><div class="agent-art"><img src="/wolf-portrait.png" alt="Lobisomem com colete tático verde" onerror="this.style.display='none'"><div class="agent-grid"></div><span class="cross tl">+</span><span class="cross br">+</span></div><div class="agent-id"><span class="tag">ESPÉCIE / LICANTROPO</span><h2>Lobisomem <span>✦</span></h2><p>Força ancestral. Instinto de proteção.</p><div class="agent-stats"><span>GARRAS <b>━━━━━</b></span><span>RESISTÊNCIA <b>━━━━╸</b></span><span>MOBILIDADE <b>━━━╸</b></span></div></div><div class="authorized"><span>● APTO PARA OPERAÇÃO</span><small>GMS–LW–001</small></div></aside></div><div class="terrain-label"><span>◈</span><div>MATA VIVA<small>SETOR 07 · BASE DE PESQUISA</small></div></div>`;
       }
       if (g.phase === "playing") {
-        screen.innerHTML = `<div class="hud"><div class="vitals"><div class="portrait"><img src="/wolf-portrait.png" alt="Agente lobisomem"></div><div><div class="agent-name">LOBISOMEM <span id="level"></span></div><div class="bar health"><i id="hpbar"></i><span id="hptext"></span></div><div class="bar essence"><i id="epbar"></i><span id="eptext"></span></div></div></div><div class="mission-hud"><small>OPERAÇÃO 001 / MATA VIVA</small><strong id="timer"></strong><span id="kills"></span></div><button class="pause-button" data-action="pause" aria-label="Pausar">Ⅱ</button></div><div id="bossbar"></div><div class="xp-track"><i id="xpbar"></i></div><div id="toast"></div><div class="skills">${(Object.entries(SKILLS) as [Skill, typeof SKILLS.q][]).map(([k, s], i) => `<button data-action="skill:${k}" class="skill" id="skill-${i}"><kbd>${k === " " ? "ESPAÇO" : k.toUpperCase()}</kbd><span class="skill-icon">${["≋", "◉", "♜", "➤"][i]}</span><b>${s.name}</b><small>${s.cost ? s.cost + " ESS" : "ESQUIVA"}</small><em></em></button>`).join("")}</div><div class="auto-hint">GARRAS AUTOMÁTICAS <span>·</span> WASD PARA MOVER</div><div id="joystick"><i></i></div>`;
+        screen.innerHTML = `<div class="hud"><div class="vitals"><div class="portrait"><img src="/wolf-portrait.png" alt="Agente lobisomem"></div><div><div class="agent-name">LOBISOMEM <span id="level"></span></div><div class="bar health"><i id="hpbar"></i><span id="hptext"></span></div><div class="bar essence"><i id="epbar"></i><span id="eptext"></span></div></div></div><div class="mission-hud"><small>OPERAÇÃO 001 / MATA VIVA</small><strong id="timer"></strong><span id="kills"></span></div><button class="pause-button" data-action="pause" aria-label="Pausar">Ⅱ</button></div><div id="bossbar"></div><div class="xp-track"><i id="xpbar"></i></div><div id="toast"></div><div class="skills"><div class="skill basic-attack" title="Ataca automaticamente a criatura mais próxima dentro do alcance"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">⋔</span><b>Garras</b><small id="claw-stats"></small></div>${(Object.entries(SKILLS) as [Skill, typeof SKILLS.q][]).map(([k, s], i) => `<div class="skill" id="skill-${i}" aria-label="${s.name}"><span class="skill-mode">AUTOMÁTICO</span><span class="skill-icon">${["≋", "◉", "♜", "➤"][i]}</span><b>${s.name}</b><small></small><em></em></div>`).join("")}</div><div class="auto-hint"><span id="xp-info"></span></div><div id="joystick"><i></i></div>`;
         this.joystick();
       }
       if (["paused", "upgrade", "victory", "defeat"].includes(g.phase)) {
@@ -78,10 +79,10 @@ export class UI {
               : g.phase === "victory"
                 ? "Anomalia contida"
                 : "Agente extraído";
-        screen.innerHTML = `<div class="modal-shade"><section class="modal ${g.phase === "upgrade" ? "wide" : ""}"><div class="eyebrow">${g.phase === "upgrade" ? "EVOLUÇÃO / NÍVEL " + p.level : "G.M.S. / RELATÓRIO DE CAMPO"}</div><h2>${title}</h2>${g.phase === "paused" ? `${controls}<div class="settings">${this.settings()}</div><button class="primary" data-action="resume">CONTINUAR OPERAÇÃO →</button>` : g.phase === "upgrade" ? `<p>Escolha uma melhoria para continuar.</p><div class="upgrades">${g.upgradeChoices.map((u, i) => `<button data-action="upgrade:${u.id}"><span>0${i + 1} / ${g.levels[u.id] || 0} DE ${u.max}</span><h3>${u.title}</h3><p>${u.text}</p><b>SELECIONAR ↗</b></button>`).join("")}</div>` : `<p>${g.phase === "victory" ? "A origem da corrupção foi neutralizada. O perímetro está seguro." : "A equipe de resgate chegou. Reorganize-se para uma nova incursão."}</p><div class="result"><span>TEMPO<b>${clock(g.time)}</b></span><span>NÍVEL<b>${p.level}</b></span><span>ABATES<b>${p.kills}</b></span></div><button class="primary" data-action="retry">JOGAR NOVAMENTE →</button>`}${g.phase !== "upgrade" ? '<button class="text-button" data-action="menu">Voltar ao menu</button>' : ""}</section></div>`;
+        screen.innerHTML = `<div class="modal-shade"><section class="modal ${g.phase === "upgrade" ? "wide" : ""}"><div class="eyebrow">${g.phase === "upgrade" ? "EVOLUÇÃO / NÍVEL " + p.level : "G.M.S. / RELATÓRIO DE CAMPO"}</div><h2>${title}</h2>${g.phase === "paused" ? `${controls}<div class="inventory"><h3>Equipamento e instintos</h3>${this.inventory()}</div><div class="settings">${this.settings()}</div><button class="primary" data-action="resume">CONTINUAR OPERAÇÃO →</button>` : g.phase === "upgrade" ? `<p>Escolha 1 de 3. Itens melhoram seus atributos; instintos desbloqueiam e evoluem habilidades automáticas.</p><div class="upgrades">${g.upgradeChoices.map((u) => `<button class="rarity-${u.rarity.id}" data-action="upgrade:${u.id}"><span class="loot-type">${u.kind === "item" ? "ITEM PASSIVO" : u.unlock ? "NOVA HABILIDADE" : "APRIMORAR HABILIDADE"}</span><div class="loot-rarity">${u.rarity.name}</div><h3>${u.title}</h3><span class="loot-quality">QUALIDADE / ${u.quality.name}</span><p>${u.text}</p>${u.skill ? `<p class="loot-numbers">Dano ${u.unlock ? 0 : Math.round(SKILLS[u.skill].damage * (1 + p.skillPower[u.skill]))} → ${Math.round(SKILLS[u.skill].damage * (1 + p.skillPower[u.skill] + u.value))} · Intervalo ${(SKILLS[u.skill].cooldown * p.cooldown).toFixed(1)}s</p>` : ""}<span class="loot-rank">${Number.isFinite(u.max) ? `NÍVEL ${(g.levels[u.id] || 0) + 1} / ${u.max}` : "TREINAMENTO CONTÍNUO"}</span><b>ESCOLHER →</b></button>`).join("")}</div>` : `<p>${g.phase === "victory" ? "A origem da corrupção foi neutralizada. O perímetro está seguro." : "A equipe de resgate chegou. Reorganize-se para uma nova incursão."}</p><div class="result"><span>TEMPO<b>${clock(g.time)}</b></span><span>NÍVEL<b>${p.level}</b></span><span>ABATES<b>${p.kills}</b></span></div><button class="primary" data-action="retry">JOGAR NOVAMENTE →</button>`}${g.phase !== "upgrade" ? '<button class="text-button" data-action="menu">Voltar ao menu</button>' : ""}</section></div>`;
       }
       if (this.panel) {
-        screen.innerHTML += `<div class="modal-shade"><section class="modal"><div class="eyebrow">MANUAL DO AGENTE</div><h2>${this.panel === "help" ? "Como jogar" : "Configurações"}</h2>${this.panel === "help" ? `${controls}<p>Sobreviva por 8 minutos e derrote o Coração da Corrupção. Colete os fragmentos em losango e escolha melhorias. O rio só pode ser atravessado pela ponte.</p>` : `<div class="settings">${this.settings()}</div>`}<button class="primary" data-action="back">VOLTAR →</button></section></div>`;
+        screen.innerHTML += `<div class="modal-shade"><section class="modal"><div class="eyebrow">MANUAL DO AGENTE</div><h2>${this.panel === "help" ? "Como jogar" : "Configurações"}</h2>${this.panel === "help" ? `${controls}<p>Você começa somente com garras automáticas. Criaturas derrotadas deixam XP: entre no círculo de coleta para atrair os fragmentos. A cada nível, escolha 1 de 3 itens ou habilidades com raridade e qualidade próprias. Habilidades aprendidas são usadas automaticamente quando há ameaças ao alcance, respeitando Essência e recarga. Sobreviva por 8 minutos e derrote o chefe. O rio só pode ser atravessado pela ponte.</p>` : `<div class="settings">${this.settings()}</div>`}<button class="primary" data-action="back">VOLTAR →</button></section></div>`;
       }
     }
     if (g.phase === "playing") {
@@ -104,14 +105,32 @@ export class UI {
       ] as const)
         document.getElementById(id)!.style.width = `${n * 100}%`;
       set("toast", g.toastTime > 0 ? g.toast : "");
+      set("claw-stats", `${p.damage.toFixed(1)} DANO`);
+      set(
+        "xp-info",
+        `XP ${Math.floor(p.xp)} / ${xpFor(p.level)} · COLETA ${pickupRadius(p, g.scent > 0).toFixed(1)} m`,
+      );
       (Object.keys(SKILLS) as Skill[]).forEach((k, i) => {
         const el = document.getElementById("skill-" + i)!;
+        const learned = p.skills[k] > 0;
+        el.classList.toggle("locked", !learned);
         el.classList.toggle(
           "unavailable",
-          g.cooldowns[k] > 0 || p.essence < SKILLS[k].cost,
+          !learned || g.cooldowns[k] > 0 || p.essence < SKILLS[k].cost,
         );
-        el.querySelector("em")!.textContent =
-          g.cooldowns[k] > 0 ? Math.ceil(g.cooldowns[k]) + "s" : "";
+        el.title = learned
+          ? `Automática · Nível ${p.skills[k]} · Dano ${Math.round(SKILLS[k].damage * (1 + p.skillPower[k]))} · Intervalo ${(SKILLS[k].cooldown * p.cooldown).toFixed(1)}s · ${SKILLS[k].cost} Essência`
+          : "Aprenda ao subir de nível";
+        el.querySelector("small")!.textContent = learned
+          ? `NV ${p.skills[k]} · ${SKILLS[k].cost} ESS`
+          : "SUBA DE NÍVEL";
+        el.querySelector("em")!.textContent = !learned
+          ? "BLOQUEADA"
+          : g.cooldowns[k] > 0
+            ? Math.ceil(g.cooldowns[k]) + "s"
+            : p.essence < SKILLS[k].cost
+              ? "SEM ESS."
+              : "PRONTA";
       });
       const boss = document.getElementById("bossbar")!;
       boss.innerHTML =
@@ -119,6 +138,20 @@ export class UI {
           ? `<span>CORAÇÃO DA CORRUPÇÃO</span><div><i style="width:${(100 * g.boss.hp) / g.boss.maxHp}%"></i></div>`
           : "";
     }
+  }
+  inventory() {
+    if (!this.game.inventory.length)
+      return "<p>Garras equipadas. Colete XP para obter itens e instintos.</p>";
+    return (
+      "<ul>" +
+      this.game.inventory
+        .map(
+          (u) =>
+            `<li class="rarity-${u.rarity.id}"><b>${u.title}</b><span>${u.rarity.name} · ${u.quality.name}</span></li>`,
+        )
+        .join("") +
+      "</ul>"
+    );
   }
   joystick() {
     const el = document.getElementById("joystick")!;
