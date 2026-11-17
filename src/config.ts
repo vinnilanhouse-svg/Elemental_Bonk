@@ -10,8 +10,9 @@ export const CFG = {
   range: 2.5,
   collect: 2.8,
   invulnerability: 0.65,
-  dashInvulnerability: 0.28,
-  dashDistance: 3.8,
+  evasionBase: 0.08,
+  evasionPerPower: 0.2,
+  evasionCap: 0.5,
   enemyInterval: 1.4,
   particles: 90,
 };
@@ -43,10 +44,10 @@ export const SKILLS = {
   " ": {
     name: "Esquiva",
     cost: 0,
-    cooldown: 6,
-    duration: 0.28,
-    damage: 16,
-    range: 2.5,
+    cooldown: 0,
+    duration: 0,
+    damage: 0,
+    range: 0,
   },
 };
 export type Skill = keyof typeof SKILLS;

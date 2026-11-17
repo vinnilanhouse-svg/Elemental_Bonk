@@ -1,4 +1,5 @@
 import { CFG, LOOT, SKILLS, type Skill } from "./config";
+import { evasionChance } from "./skills";
 import type { Player } from "./logic";
 
 type Stat =
@@ -148,14 +149,15 @@ function weighted<T extends { weight: number }>(
   return entries[entries.length - 1];
 }
 export function validRewards(levels: Record<string, number>, p: Player) {
-  const hasInstinct = Object.values(p.skills).some((rank) => rank > 0);
+  const hasInstinct = p.skills.q > 0 || p.skills.e > 0 || p.skills.r > 0;
   const rewards = REWARDS.filter(
     (r) =>
       !r.fallback &&
       (hasInstinct ||
         !["cooldown", "essence", "regen"].includes(r.stat || "")) &&
       (levels[r.id] || 0) < r.max &&
-      !(r.stat === "armor" && p.armor >= 0.6),
+      !(r.stat === "armor" && p.armor >= 0.6) &&
+      !(r.skill === " " && evasionChance(p) >= CFG.evasionCap),
   );
   return rewards.length >= 3
     ? rewards
@@ -170,6 +172,14 @@ export function makeChoice(
     quality = weighted(LOOT.qualities, rng);
   const unlock = reward.skill !== undefined && p.skills[reward.skill] === 0;
   let value = round(reward.amount * rarity.multiplier * quality.multiplier);
+  if (reward.skill === " ")
+    value = round(
+      Math.min(
+        value,
+        (CFG.evasionCap - CFG.evasionBase) / CFG.evasionPerPower -
+          p.skillPower[" "],
+      ),
+    );
   if (reward.stat === "hp" || reward.stat === "essence")
     value = Math.round(value);
   if (reward.stat === "armor") value = round(Math.min(value, 0.6 - p.armor));
@@ -218,9 +228,17 @@ export function makeChoice(
       q: "dano, alcance e empurrão do cone",
       e: "dano do pulso, duração e coleta durante o faro",
       r: "dano do uivo, bônus de combate e duração da fúria",
-      " ": "dano do contra-ataque, distância e invulnerabilidade da esquiva",
+      " ": "chance de evitar dano",
     };
     text = `${unlock ? "Desbloqueia" : "Aprimora"} ${SKILLS[key].name} automático. +${fmt(value * 100)}% à potência: ${effects[key]}.`;
+    if (key === " ") {
+      const next = {
+        ...p,
+        skills: { ...p.skills, " ": p.skills[" "] + 1 },
+        skillPower: { ...p.skillPower, " ": p.skillPower[" "] + value },
+      };
+      text = `${unlock ? "Desbloqueia" : "Aprimora"} esquiva passiva: ${fmt(evasionChance(p) * 100)}% → ${fmt(evasionChance(next) * 100)}% de chance de evitar um golpe. Não move o personagem.`;
+    }
   }
   return {
     ...reward,
@@ -236,12 +254,30 @@ export function rollChoices(
   levels: Record<string, number>,
   p: Player,
   rng: () => number = Math.random,
+  recentOffers: readonly (readonly string[])[] = [],
 ): UpgradeChoice[] {
   const pool = validRewards(levels, p),
     out: UpgradeChoice[] = [];
+  const last = new Set(recentOffers[recentOffers.length - 1] || []);
+  const fresh = pool.filter((r) => !last.has(r.id));
   for (let i = 0; i < 3; i++) {
-    const index = Math.min(pool.length - 1, Math.floor(rng() * pool.length));
-    out.push(makeChoice(pool.splice(index, 1)[0], p, rng));
+    let candidates =
+      i < 2 && fresh.length >= 2 ? pool.filter((r) => !last.has(r.id)) : pool;
+    if (!candidates.length) candidates = pool;
+    if (i === 2 && out.every((c) => c.kind === out[0].kind)) {
+      const opposite = candidates.filter(
+        (r) => Boolean(r.skill) !== Boolean(out[0].skill),
+      );
+      if (opposite.length) candidates = opposite;
+    }
+    const weights = candidates.map((r) => ({
+      reward: r,
+      weight:
+        1 / (1 + recentOffers.flat().filter((id) => id === r.id).length * 3),
+    }));
+    const selected = weighted(weights, rng).reward;
+    pool.splice(pool.indexOf(selected), 1);
+    out.push(makeChoice(selected, p, rng));
   }
   return out;
 }

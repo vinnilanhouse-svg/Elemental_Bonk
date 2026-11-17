@@ -27,7 +27,8 @@ const assert = require("node:assert/strict");
     await page.getByRole("button", { name: "VOLTAR →", exact: true }).click();
     await page.getByRole("button", { name: /INICIAR MISSÃO/ }).click();
     assert.equal(await page.evaluate(() => window.__game.phase), "playing");
-    assert.equal(await page.locator(".skill.locked").count(), 4);
+    assert.equal(await page.locator(".skill").count(), 1);
+    assert.equal(await page.locator(".skill.locked").count(), 0);
     assert.equal(await page.locator('[data-action^="skill:"]').count(), 0);
     for (const key of ["w", "s", "a", "d"]) {
       const before = await page.evaluate(() => ({ ...window.__game.player }));
@@ -74,7 +75,8 @@ const assert = require("node:assert/strict");
     await page.screenshot({ path: "/tmp/monstrao-upgrades-desktop.png" });
     await page.locator('[data-action="upgrade:sopro"]').click();
     assert.equal(await page.evaluate(() => window.__game.player.skills.q), 1);
-    assert.equal(await page.locator(".skill.locked").count(), 3);
+    assert.equal(await page.locator(".skill").count(), 2);
+    assert.equal(await page.locator(".skill.locked").count(), 0);
     await page.keyboard.press("q");
     assert.equal(await page.evaluate(() => window.__game.cooldowns.q), 0);
     const results = await page.evaluate(async () => {
@@ -121,7 +123,6 @@ const assert = require("node:assert/strict");
         ["sopro", "q", 3],
         ["faro", "e", 5],
         ["furia", "r", 3],
-        ["esquiva", " ", 2.2],
       ]) {
         reset();
         const choice = makeChoice(

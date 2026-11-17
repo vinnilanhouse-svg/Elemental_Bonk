@@ -1192,3 +1192,81 @@ progress {
     font-size: 11px;
   }
 }
+.basic-attack.attacking {
+  border-color: #ffe4a3;
+  box-shadow: 0 0 16px #edcc7955;
+  background: #344b2c;
+}
+.basic-attack.attacking .skill-icon {
+  color: #fff2c9;
+}
+.basic-attack em {
+  font-size: 7px;
+  color: #d9d6a5;
+}
+.skills {
+  max-width: calc(100vw - 30px);
+}
+.loot-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.loot-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--rarity);
+  border-radius: 8px;
+  background: #11261e;
+  color: var(--rarity);
+}
+.loot-icon svg {
+  width: 30px;
+  height: 30px;
+}
+.loot-head .loot-type {
+  display: block;
+  margin-bottom: 5px;
+}
+.loot-head .loot-rarity {
+  position: static;
+}
+.skill-icon svg {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+.evade-feedback {
+  position: absolute;
+  left: 50%;
+  top: 43%;
+  transform: translate(-50%, -50%);
+  color: #b4ead2;
+  font: 700 12px monospace;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 5px #10261b;
+  pointer-events: none;
+}
+@media (max-width: 760px) {
+  .loot-icon {
+    width: 40px;
+    height: 40px;
+  }
+  .loot-icon svg {
+    width: 27px;
+    height: 27px;
+  }
+  .upgrades .loot-rarity {
+    position: static;
+  }
+  .loot-head {
+    gap: 10px;
+  }
+  .skill-icon svg {
+    width: 21px;
+    height: 21px;
+  }
+}

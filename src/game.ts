@@ -1,4 +1,6 @@
 import * as T from "three";
+import { CombatFeedback } from "./combat-feedback";
+import { stableDirection } from "./motion";
 import { nextWaypoint } from "./navigation";
 import { CFG, SKILLS, ENEMY_XP, type Skill } from "./config";
 import {
@@ -8,6 +10,7 @@ import {
   heightAt,
   distance,
   normalize,
+  inCone,
   xpFor,
   type Point,
 } from "./logic";
@@ -16,12 +19,12 @@ import { Camera } from "./camera";
 import { Input } from "./input";
 import { Animator, wolfAtlas } from "./animation";
 import { EnemyAnimator, type EnemyAsset } from "./enemy-animation";
-import { enemyDirection, ENEMY_DEATH_DURATION } from "./enemy-animation-state";
+import { ENEMY_DEATH_DURATION } from "./enemy-animation-state";
 import { XP_DROP_TIME, xpDropHeight, xpFragment, xpLabelTexture } from "./xp";
 import { Audio } from "./audio";
 import { load, store } from "./save";
 import { targetsInArc } from "./combat";
-import { autoSkillReady } from "./skills";
+import { autoSkillReady, avoidsDamage } from "./skills";
 import {
   rollChoices,
   applyChoice,
@@ -32,6 +35,7 @@ import type { Enemy, Projectile, Gem, Effect } from "./enemies";
 export class Game {
   world = new World();
   camera = new Camera();
+  feedback = new CombatFeedback(this.world.scene);
   input = new Input();
   audio = new Audio();
   save = load();
@@ -53,6 +57,8 @@ export class Game {
   spawnClock = 0;
   attackClock = 0;
   invuln = 0;
+  hurtTime = 0;
+  evadeFeedback = 0;
   fury = 0;
   scent = 0;
   attackAnim = 0;
@@ -61,6 +67,7 @@ export class Game {
   heading: Point = { x: 0, z: 1 };
   cooldowns: Record<Skill, number> = { q: 0, e: 0, r: 0, " ": 0 };
   levels: Record<string, number> = {};
+  offerHistory: string[][] = [];
   bossSpawned = false;
   boss?: Enemy;
   id = 0;
@@ -84,7 +91,7 @@ export class Game {
     this.renderer.shadowMap.type = T.PCFSoftShadowMap;
     this.renderer.outputColorSpace = T.SRGBColorSpace;
     this.hero = new T.Sprite(
-      new T.SpriteMaterial({ transparent: true, alphaTest: 0.4 }),
+      new T.SpriteMaterial({ transparent: false, alphaTest: 0.4 }),
     );
     this.hero.scale.set(2.3, 2.3, 1);
     this.hero.center.set(0.5, 16 / 256);
@@ -138,6 +145,7 @@ export class Game {
     this.renderer.shadowMap.enabled = this.save.quality === "alta";
   }
   clear() {
+    this.feedback.clear();
     for (const e of new Set([...this.enemies, ...this.corpses])) {
       this.world.scene.remove(e.mesh);
       e.anim.dispose();
@@ -161,6 +169,8 @@ export class Game {
     this.lastXP = 0;
     this.attackClock = 0;
     this.invuln = 0;
+    this.hurtTime = 0;
+    this.evadeFeedback = 0;
     this.fury = 0;
     this.scent = 0;
     this.attackAnim = 0;
@@ -169,6 +179,7 @@ export class Game {
     this.heading = { x: 0, z: 1 };
     this.cooldowns = { q: 0, e: 0, r: 0, " ": 0 };
     this.levels = {};
+    this.offerHistory = [];
     this.inventory = [];
     this.upgradeChoices = [];
     this.attackHeading = { x: 0, z: 1 };
@@ -270,21 +281,6 @@ export class Game {
         this.audio.play("howl");
         this.effect(p.x, p.z, 0xe1b16d, 1, 0.7, 5);
       }
-      if (key === " ") {
-        const input = this.input.direction();
-        const d =
-          input.x || input.z
-            ? input
-            : normalize(p.x - target.x, p.z - target.z);
-        move(
-          p,
-          d.x * CFG.dashDistance * power,
-          d.z * CFG.dashDistance * power,
-          this.world.obstacles,
-        );
-        this.invuln = Math.max(this.invuln, CFG.dashInvulnerability * power);
-        this.effect(p.x, p.z, 0xf7efc8, 0.6, 0.3, 1);
-      }
     }
   }
   private autoSkills() {
@@ -338,7 +334,7 @@ export class Game {
     const mesh = new T.Sprite(
       new T.SpriteMaterial({
         map: this.enemyAssets[kind].texture,
-        transparent: true,
+        transparent: false,
         alphaTest: 110 / 255,
         color: 0xffffff,
       }),
@@ -378,6 +374,9 @@ export class Game {
       e.dead = true;
       this.player.kills++;
       e.anim.set("death");
+      e.mesh.material.transparent = true;
+      e.mesh.material.depthWrite = false;
+      e.mesh.material.needsUpdate = true;
       e.mesh.material.color.set(0xffffff);
       e.mesh.material.rotation = 0;
       this.corpses.push(e);
@@ -402,12 +401,17 @@ export class Game {
   }
   hurt(amount: number) {
     if (this.invuln > 0) return;
+    if (avoidsDamage(this.player)) {
+      this.evadeFeedback = 0.5;
+      this.feedback.evade(this.player);
+      return;
+    }
     this.player.hp = Math.max(
       0,
       this.player.hp - amount * (1 - this.player.armor),
     );
     this.invuln = CFG.invulnerability;
-    this.anim.set("hurt");
+    this.hurtTime = 0.18;
     this.audio.play("hurt");
     if (this.save.shake) this.camera.position.x += 0.18;
     if (this.player.hp <= 0) this.finish(false);
@@ -459,7 +463,14 @@ export class Game {
   checkLevel() {
     if (this.phase !== "playing" || this.player.xp < xpFor(this.player.level))
       return;
-    const options = rollChoices(this.levels, this.player);
+    const options = rollChoices(
+      this.levels,
+      this.player,
+      Math.random,
+      this.offerHistory,
+    );
+    this.offerHistory.push(options.map((u) => u.id));
+    this.offerHistory = this.offerHistory.slice(-2);
     this.player.xp -= xpFor(this.player.level);
     this.player.level++;
     this.upgradeChoices = options;
@@ -474,6 +485,9 @@ export class Game {
       this.attackAnim > this.attackDuration * 0.5 &&
       Math.max(0, this.attackAnim - dt) <= this.attackDuration * 0.5;
     this.updateCorpses(dt);
+    this.feedback.update(dt);
+    this.hurtTime = Math.max(0, this.hurtTime - dt);
+    this.evadeFeedback = Math.max(0, this.evadeFeedback - dt);
     this.time += dt;
     this.toastTime -= dt;
     this.xpFeedback = Math.max(0, this.xpFeedback - dt);
@@ -491,14 +505,11 @@ export class Game {
       if (this.attackAnim <= 0) this.heading = dir;
       move(p, dir.x * p.speed * dt, dir.z * p.speed * dt, this.world.obstacles);
     }
-    this.anim.direction =
-      Math.abs(this.heading.x) > 0.5
-        ? this.heading.x < 0
-          ? 2
-          : 3
-        : this.heading.z < 0
-          ? 1
-          : 0;
+    this.anim.direction = stableDirection(
+      this.anim.direction,
+      this.heading.x,
+      this.heading.z,
+    );
     this.spawnClock -= dt;
     if (this.spawnClock <= 0 && !this.boss?.dead) {
       this.spawnClock = Math.max(0.4, 2.5 - this.time / 210);
@@ -535,6 +546,7 @@ export class Game {
           (this.fury > 0 ? 1 + 0.65 * (1 + p.skillPower.r) : 1);
         this.attackDuration = Math.min(0.3, this.attackClock * 0.9);
         this.attackAnim = this.attackDuration;
+        this.anim.set("attack", true);
         this.audio.play("claw");
       }
     } // Impact occurs on the extended pose, once per animation.
@@ -549,17 +561,18 @@ export class Game {
           e,
           p.damage * (this.fury > 0 ? 1 + 0.7 * (1 + p.skillPower.r) : 1),
         );
-      this.effect(
-        p.x + this.attackHeading.x,
-        p.z + this.attackHeading.z,
-        0xf0d5a0,
-        0.9,
-        0.18,
-        2,
+      this.feedback.emit(
+        { ...p },
+        this.attackHeading,
+        p.range,
+        "player",
+        "impact",
+        0.24,
       );
     }
     for (const e of this.enemies) {
       if (e.dead) continue;
+      const previousWindup = e.windup;
       const oldX = e.x,
         oldZ = e.z;
       e.cooldown -= dt;
@@ -567,7 +580,7 @@ export class Game {
       e.hit = Math.max(0, e.hit - dt);
       e.action = Math.max(0, e.action - dt);
       const d = distance(e, p);
-      if (!e.nav || e.navClock <= 0) {
+      if (!e.nav || e.navClock <= 0 || distance(e, e.nav) < 0.3) {
         e.nav = nextWaypoint(e, p, this.world.obstacles);
         e.navClock = 0.8 + Math.random() * 0.3;
       }
@@ -579,16 +592,33 @@ export class Game {
       if (e.windup > 0) {
         e.windup = Math.max(0, e.windup - dt);
         if (e.windup === 0) {
+          this.feedback.emit(
+            { x: e.x, z: e.z },
+            e.facing,
+            e.kind === 3 ? 5 : e.kind === 2 ? 2.8 : 1.9,
+            "enemy",
+            "impact",
+            0.25,
+            e.kind === 3
+              ? "circle"
+              : e.attackMode === "ranged"
+                ? "line"
+                : "cone",
+          );
           e.action =
             e.attackMode === "volley" || e.attackMode === "summon" ? 0.5 : 0.26;
           if (e.attackMode === "ranged")
-            this.shoot(e, Math.atan2(p.z - e.z, p.x - e.x));
+            this.shoot(e, Math.atan2(e.facing.z, e.facing.x));
           else if (e.attackMode === "volley")
             for (let i = 0; i < 12; i++) this.shoot(e, (i * Math.PI) / 6);
           else if (e.attackMode === "summon")
             for (let i = 0; i < 2; i++)
               this.spawn(0, { x: e.x + 3 + i * 2, z: e.z + 3 });
-          else if (d < (e.kind === 3 ? 5 : e.kind === 2 ? 2.8 : 1.9))
+          else if (
+            e.kind === 3
+              ? d < 5
+              : inCone(e, e.facing, p, e.kind === 2 ? 2.8 : 1.9)
+          )
             this.hurt(e.kind === 3 ? 35 : e.kind === 2 ? 25 : 10);
         }
       } else if (e.action > 0) {
@@ -612,17 +642,6 @@ export class Game {
         e.windup = e.kind === 3 ? 1.3 : 0.8;
         e.cooldown = e.kind === 3 ? 4 : 2.5;
         e.facing = normalize(p.x - e.x, p.z - e.z);
-        if (e.attackMode === "melee" || e.attackMode === "slam")
-          this.effect(e.x, e.z, 0xd77b74, e.kind === 3 ? 5 : 2.8, e.windup, 0);
-        else
-          this.effect(
-            e.x,
-            e.z,
-            e.attackMode === "summon" ? 0xa9c58a : 0xbe98d6,
-            1,
-            e.windup,
-            1,
-          );
       } else {
         if (d > 1.3) {
           move(
@@ -641,7 +660,28 @@ export class Game {
           e.facing = normalize(p.x - e.x, p.z - e.z);
         }
       }
-      e.anim.direction = enemyDirection(e.facing.x, e.facing.z);
+      if (previousWindup <= 0 && e.windup > 0)
+        this.feedback.emit(
+          e,
+          e.facing,
+          e.attackMode === "ranged"
+            ? 8
+            : e.kind === 3
+              ? 5
+              : e.kind === 2
+                ? 2.8
+                : 1.9,
+          "enemy",
+          "windup",
+          e.windup,
+          e.attackMode === "ranged" ? "line" : e.kind === 3 ? "circle" : "cone",
+          e.anim.asset.height,
+        );
+      e.anim.direction = stableDirection(
+        e.anim.direction,
+        e.facing.x,
+        e.facing.z,
+      );
       e.anim.set(
         e.windup > 0
           ? "windup"
@@ -726,22 +766,19 @@ export class Game {
       return false;
     });
     if (this.phase === "playing") this.checkLevel();
-    this.anim.direction =
-      Math.abs(this.heading.x) > 0.5
-        ? this.heading.x < 0
-          ? 2
-          : 3
-        : this.heading.z < 0
-          ? 1
-          : 0;
+    this.anim.direction = stableDirection(
+      this.anim.direction,
+      this.heading.x,
+      this.heading.z,
+    );
     if (this.phase === "playing" || this.phase === "upgrade")
       this.anim.set(
         this.howl > 0
           ? "howl"
-          : this.invuln > 0.3
-            ? "hurt"
-            : this.attackAnim > 0
-              ? "attack"
+          : this.attackAnim > 0
+            ? "attack"
+            : this.hurtTime > 0
+              ? "hurt"
               : dir.x || dir.z
                 ? "walk"
                 : "idle",
@@ -771,8 +808,10 @@ export class Game {
     const dt = Math.min((now - this.last) / 1000 || 0, 0.05);
     this.last = now;
     if (this.phase === "playing") this.update(dt);
-    else if (this.phase === "victory" || this.phase === "defeat")
+    else if (this.phase === "victory" || this.phase === "defeat") {
       this.updateCorpses(dt);
+      this.feedback.update(dt);
+    }
     this.hero.position.set(
       this.player.x,
       heightAt(this.player.x, this.player.z),
@@ -787,7 +826,9 @@ export class Game {
       this.player.z,
     );
     this.collector.scale.setScalar(pickupRadius(this.player, this.scent > 0));
-    this.hero.material.color.set(this.fury > 0 ? 0xffce88 : 0xffffff);
+    this.hero.material.color.set(
+      this.hurtTime > 0 ? 0xffc9b2 : this.fury > 0 ? 0xffce88 : 0xffffff,
+    );
     if (
       this.phase === "playing" ||
       this.phase === "defeat" ||

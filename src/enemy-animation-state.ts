@@ -12,7 +12,7 @@ export function enemyFrame(
   const row = Math.max(0, Math.min(3, direction));
   if (state === "death")
     return 30 + Math.min(5, Math.floor((time + 1e-8) / 0.13));
-  if (state === "hurt") return 24 + Math.min(3, Math.floor(time / 0.04));
+  if (state === "hurt") return row === 0 ? 24 : row * 6;
   if (state === "cast") return 28 + Math.min(1, Math.floor(time / 0.18));
   if (state === "windup") return row * 6 + 4;
   if (state === "attack") return row * 6 + 5;

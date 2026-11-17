@@ -41,7 +41,8 @@ test("locomotion, telegraph, impact, hurt, special and death select the intended
     assert.equal(enemyFrame("windup", dir, 10), dir * 6 + 4);
     assert.equal(enemyFrame("attack", dir, 0.1), dir * 6 + 5);
   }
-  assert.equal(enemyFrame("hurt", 0, 0.09), 26);
+  assert.equal(enemyFrame("hurt", 0, 0.09), 24);
+  assert.equal(enemyFrame("hurt", 2, 0.09), 12);
   assert.equal(enemyFrame("cast", 0, 0.2), 29);
   assert.equal(enemyFrame("death", 0, 0), 30);
   assert.equal(enemyFrame("death", 0, ENEMY_DEATH_DURATION), 35);

@@ -1,18 +1,11 @@
 import * as T from "three";
 export type State = "idle" | "walk" | "attack" | "hurt" | "howl" | "death";
-// Replacement atlas contract: pixel rectangles, foot pivot and seconds per frame.
-export const frames = Array.from({ length: 6 }, (_, row) =>
-  Array.from({ length: 6 }, (_, col) => ({
-    rect: [col * 48, row * 56, 48, 56],
-    pivot: [24, 52],
-    duration: row === 5 ? 0.12 : 0.14,
-  })),
-);
 export function wolfAtlas() {
   const t = new T.TextureLoader().load("/wolf-atlas.png");
   t.magFilter = T.NearestFilter;
   t.minFilter = T.NearestFilter;
   t.colorSpace = T.SRGBColorSpace;
+  t.generateMipmaps = false;
   return t;
 }
 export class Animator {
@@ -28,8 +21,8 @@ export class Animator {
     this.texture.repeat.set(1 / 6, 1 / 6);
     (sprite.material as T.SpriteMaterial).map = this.texture;
   }
-  set(state: State) {
-    if (this.state !== state) {
+  set(state: State, restart = false) {
+    if (this.state !== state || restart) {
       this.state = state;
       this.time = 0;
     }
@@ -41,8 +34,11 @@ export class Animator {
     if (this.state === "walk") col = 1 + (Math.floor(this.time / 0.14) % 3);
     if (this.state === "attack") col = this.time < 0.14 ? 4 : 5;
     if (this.state === "hurt") {
-      row = 4;
-      col = Math.floor(this.time / 0.1) % 4;
+      // Keep the facing silhouette instead of flashing through four front poses.
+      if (this.direction === 0) {
+        row = 4;
+        col = 0;
+      } else col = 0;
     }
     if (this.state === "howl") {
       row = 4;

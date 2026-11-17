@@ -49,6 +49,25 @@ export async function loadEnemyAssets(
     throw error;
   });
 }
+export function stableFrames(
+  frames: EnemyFrame[],
+  width: number,
+): EnemyFrame[] {
+  const cell = width / 6;
+  const anchors = Array.from({ length: 4 }, (_, row) => {
+    const centers = frames
+      .slice(row * 6, row * 6 + 4)
+      .map((f, col) => f.rect[0] + f.rect[2] / 2 - col * cell)
+      .sort((a, b) => a - b);
+    return (centers[1] + centers[2]) / 2;
+  });
+  return frames.map((f, index) => {
+    const row = Math.floor(index / 6),
+      col = index % 6;
+    const px = col * cell + anchors[row < 4 ? row : 0] - f.rect[0];
+    return { ...f, pivot: [px, f.pivot[1]] };
+  });
+}
 export class EnemyAnimator {
   state: EnemyAnimationState = "idle";
   time = 0;
@@ -56,10 +75,12 @@ export class EnemyAnimator {
   frame = 0;
   texture: T.Texture;
   disposed = false;
+  readonly frames: EnemyFrame[];
   constructor(
     public sprite: T.Sprite,
     public asset: EnemyAsset,
   ) {
+    this.frames = stableFrames(asset.frames, asset.width);
     // Clones have independent UV transforms but share the uploaded source image.
     this.texture = asset.texture.clone();
     this.texture.needsUpdate = true;
@@ -79,7 +100,7 @@ export class EnemyAnimator {
   }
   private apply() {
     this.frame = enemyFrame(this.state, this.direction, this.time);
-    const f = this.asset.frames[this.frame],
+    const f = this.frames[this.frame],
       [x, y, w, h] = f.rect,
       [px, py] = f.pivot;
     this.texture.repeat.set(w / this.asset.width, h / this.asset.sourceHeight);
