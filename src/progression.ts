@@ -1,5 +1,6 @@
-import { CFG, LOOT, SKILLS, type Skill } from "./config";
-import { evasionChance } from "./skills";
+import { skillFor, type Species } from "./species";
+import { CFG, LOOT, type Skill } from "./config";
+import { evasionChance, scaleResistance } from "./skills";
 import type { Player } from "./logic";
 
 type Stat =
@@ -23,12 +24,13 @@ type Reward = {
   amount: number;
   skill?: Skill;
   fallback?: boolean;
+  species?: Species;
 };
 export const REWARDS: Reward[] = [
   { id: "hp", title: "Colete reforçado", max: 5, stat: "hp", amount: 25 },
   {
     id: "damage",
-    title: "Amolador de garras",
+    title: "Talismã de combate",
     max: 6,
     stat: "damage",
     amount: CFG.damage * 0.2,
@@ -97,10 +99,126 @@ export const REWARDS: Reward[] = [
     stat: "range",
     amount: 0.25,
   },
-  { id: "sopro", title: "Sopro de Repulsão", max: 5, skill: "q", amount: 0.2 },
-  { id: "faro", title: "Faro", max: 5, skill: "e", amount: 0.2 },
-  { id: "furia", title: "Fúria", max: 5, skill: "r", amount: 0.2 },
-  { id: "esquiva", title: "Esquiva", max: 5, skill: " ", amount: 0.2 },
+  {
+    species: "wolf",
+    id: "sopro",
+    title: "Sopro de Repulsão",
+    max: 5,
+    skill: "q",
+    amount: 0.2,
+  },
+  {
+    species: "wolf",
+    id: "faro",
+    title: "Faro",
+    max: 5,
+    skill: "e",
+    amount: 0.2,
+  },
+  {
+    species: "wolf",
+    id: "furia",
+    title: "Fúria",
+    max: 5,
+    skill: "r",
+    amount: 0.2,
+  },
+  {
+    species: "wolf",
+    id: "esquiva",
+    title: "Esquiva",
+    max: 5,
+    skill: " ",
+    amount: 0.2,
+  },
+  {
+    species: "gorgon",
+    id: "gorgon-poison",
+    title: "Dia do Cabelo Maluco",
+    max: 5,
+    skill: "q",
+    amount: 0.2,
+  },
+  {
+    species: "gorgon",
+    id: "gorgon-gaze",
+    title: "Penteado Diferenciado",
+    max: 5,
+    skill: "e",
+    amount: 0.2,
+  },
+  {
+    species: "gorgon",
+    id: "gorgon-medusa",
+    title: "A Medusa",
+    max: 5,
+    skill: "r",
+    amount: 0.2,
+  },
+  {
+    species: "gorgon",
+    id: "gorgon-skin",
+    title: "É Tipo Trocar de Roupa",
+    max: 5,
+    skill: "defense",
+    amount: 0.2,
+  },
+  {
+    species: "gorgon",
+    id: "gorgon-scales",
+    title: "Ssssssscamas",
+    max: 5,
+    skill: " ",
+    amount: 0.2,
+  },
+  {
+    species: "saci",
+    id: "saci-wind",
+    title: "Travessura do Vento",
+    max: 5,
+    skill: "q",
+    amount: 0.2,
+  },
+  {
+    species: "saci",
+    id: "saci-blink",
+    title: "Sumiço Rápido",
+    max: 5,
+    skill: "e",
+    amount: 0.2,
+  },
+  {
+    species: "saci",
+    id: "saci-tornado",
+    title: "Dia do Saci",
+    max: 5,
+    skill: "r",
+    amount: 0.2,
+  },
+  {
+    species: "saci",
+    id: "saci-escape",
+    title: "Me Pegue se Puder",
+    max: 5,
+    skill: " ",
+    amount: 0.2,
+  },
+  {
+    species: "saci",
+    id: "saci-trap",
+    title: "Armadilha Natural",
+    max: 5,
+    skill: "trap",
+    amount: 0.2,
+  },
+  {
+    species: "saci",
+    id: "saci-mobility",
+    title: "Viva o SUS",
+    max: 5,
+    skill: "mobility",
+    amount: 0.2,
+  },
   // Once the catalog is exhausted, every level still offers three effective rewards.
   {
     id: "veteran-hp",
@@ -148,16 +266,38 @@ function weighted<T extends { weight: number }>(
   }
   return entries[entries.length - 1];
 }
+function powerCap(p: Player, key: Skill) {
+  if (p.species === "gorgon") {
+    if (key === "e" || key === "r")
+      return (
+        Math.floor((4 / skillFor(p, key)!.duration - 1) * 100 + 1e-6) / 100
+      );
+    if (key === "defense") return 2;
+  }
+  if (p.species === "saci" && key === "trap") return 0.66;
+  return Infinity;
+}
 export function validRewards(levels: Record<string, number>, p: Player) {
-  const hasInstinct = p.skills.q > 0 || p.skills.e > 0 || p.skills.r > 0;
+  const hasInstinct = Object.entries(p.skills).some(
+    ([k, v]) => k !== " " && v > 0,
+  );
   const rewards = REWARDS.filter(
     (r) =>
       !r.fallback &&
+      (!r.species || r.species === p.species) &&
       (hasInstinct ||
         !["cooldown", "essence", "regen"].includes(r.stat || "")) &&
       (levels[r.id] || 0) < r.max &&
+      (!r.skill || p.skillPower[r.skill] < powerCap(p, r.skill) - 1e-6) &&
       !(r.stat === "armor" && p.armor >= 0.6) &&
-      !(r.skill === " " && evasionChance(p) >= CFG.evasionCap),
+      !(
+        r.skill === " " &&
+        (p.species === "wolf"
+          ? evasionChance(p) >= CFG.evasionCap
+          : p.species === "gorgon"
+            ? scaleResistance(p) >= 0.55
+            : false)
+      ),
   );
   return rewards.length >= 3
     ? rewards
@@ -172,7 +312,12 @@ export function makeChoice(
     quality = weighted(LOOT.qualities, rng);
   const unlock = reward.skill !== undefined && p.skills[reward.skill] === 0;
   let value = round(reward.amount * rarity.multiplier * quality.multiplier);
-  if (reward.skill === " ")
+  if (reward.skill)
+    value = Math.min(
+      value,
+      round(powerCap(p, reward.skill) - p.skillPower[reward.skill]),
+    );
+  if (reward.skill === " " && p.species === "wolf")
     value = round(
       Math.min(
         value,
@@ -180,6 +325,8 @@ export function makeChoice(
           p.skillPower[" "],
       ),
     );
+  if (reward.skill === " " && p.species === "gorgon")
+    value = round(Math.min(value, (0.55 - 0.2) / 0.2 - p.skillPower[" "]));
   if (reward.stat === "hp" || reward.stat === "essence")
     value = Math.round(value);
   if (reward.stat === "armor") value = round(Math.min(value, 0.6 - p.armor));
@@ -189,7 +336,7 @@ export function makeChoice(
       text = `+${fmt(value)} de vida máxima; recupera ${fmt(value)} de vida.`;
       break;
     case "damage":
-      text = `+${fmt(value)} de dano em cada golpe de garras.`;
+      text = `+${fmt(value)} de dano em cada ataque básico.`;
       break;
     case "attack":
       text = `+${fmt(value * 100)}% de velocidade de ataque.`;
@@ -219,19 +366,30 @@ export function makeChoice(
       text = `+${fmt(value * 100)}% de XP recebido ao coletar fragmentos.`;
       break;
     case "range":
-      text = `+${fmt(value)} m de alcance das garras automáticas.`;
+      text = `+${fmt(value)} m de alcance do ataque básico automático.`;
       break;
   }
   if (reward.skill) {
     const key = reward.skill;
-    const effects: Record<Skill, string> = {
+    const effects: Partial<Record<Skill, string>> = {
       q: "dano, alcance e empurrão do cone",
       e: "dano do pulso, duração e coleta durante o faro",
       r: "dano do uivo, bônus de combate e duração da fúria",
-      " ": "chance de evitar dano",
     };
-    text = `${unlock ? "Desbloqueia" : "Aprimora"} ${SKILLS[key].name} automático. +${fmt(value * 100)}% à potência: ${effects[key]}.`;
-    if (key === " ") {
+    const def = skillFor(p, key)!;
+    text = `${unlock ? "Desbloqueia" : "Aprimora"} ${def.name} automático. ${def.description || effects[key] || ""} ${p.species === "wolf" ? `+${fmt(value * 100)}% à potência.` : ""}`;
+    if (p.species !== "wolf") {
+      const power = 1 + p.skillPower[key] + value;
+      if (def.damage)
+        text += ` Dano ${fmt(def.damage * power)}${key === "r" && p.species === "saci" ? "/s" : ""}.`;
+      if (key === "q" && p.species === "gorgon")
+        text += ` Veneno: ${fmt(8 * power)} de dano/s por ${def.duration}s.`;
+      if (["e", "r", "trap", "mobility"].includes(key) && def.duration)
+        text += ` Duração ${fmt(def.duration * power)}s${["trap"].includes(key) || p.species === "gorgon" ? " (controle de chefes reduzido)" : ""}.`;
+      if (key === "defense")
+        text += ` Reduz ${fmt((1 - Math.max(0.15, 0.35 - (p.skillPower.defense + value) * 0.1)) * 100)}% do golpe; recarga ${def.cooldown}s.`;
+    }
+    if (key === " " && p.species === "wolf") {
       const next = {
         ...p,
         skills: { ...p.skills, " ": p.skills[" "] + 1 },
@@ -240,6 +398,11 @@ export function makeChoice(
       text = `${unlock ? "Desbloqueia" : "Aprimora"} esquiva passiva: ${fmt(evasionChance(p) * 100)}% → ${fmt(evasionChance(next) * 100)}% de chance de evitar um golpe. Não move o personagem.`;
     }
   }
+  if (reward.skill === " " && p.species === "gorgon")
+    text = `Aprimora Ssssssscamas: ${fmt(scaleResistance(p) * 100)}% → ${fmt(Math.min(0.55, 0.2 + (p.skillPower[" "] + value) * 0.2) * 100)}% de redução de corte e perfuração.`;
+  if (reward.skill === " " && p.species === "saci")
+    text = `Aprimora Me Pegue se Puder: imobilizações expiram ${fmt(2 + p.skillPower[" "] + value)} vezes mais rápido.`;
+
   return {
     ...reward,
     rarity,

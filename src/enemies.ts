@@ -1,4 +1,5 @@
 import * as T from "three";
+import type { DamageType } from "./species";
 import type { EnemyAnimator } from "./enemy-animation";
 import type { Point } from "./logic";
 export type Enemy = Point & {
@@ -16,6 +17,12 @@ export type Enemy = Point & {
   hit: number;
   mesh: T.Sprite;
   dead: boolean;
+  poisonTime: number;
+  poisonDps: number;
+  petrified: number;
+  rooted: number;
+  disoriented: number;
+  attacks: number;
   anim: EnemyAnimator;
   facing: Point;
   action: number;
@@ -29,6 +36,7 @@ export type Projectile = Point & {
   vz: number;
   life: number;
   damage: number;
+  damageType: DamageType;
   mesh: T.Mesh;
 };
 export type Gem = Point & {

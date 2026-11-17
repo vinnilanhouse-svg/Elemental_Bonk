@@ -50,7 +50,7 @@ export const SKILLS = {
     range: 0,
   },
 };
-export type Skill = keyof typeof SKILLS;
+export type Skill = "q" | "e" | "r" | " " | "trap" | "mobility" | "defense";
 // XP carried by one fragment per defeated creature, independent of wave time.
 export const ENEMY_XP = [5, 8, 16, 100] as const;
 export const LOOT = {

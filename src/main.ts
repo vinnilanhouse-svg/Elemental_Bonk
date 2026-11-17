@@ -2,20 +2,22 @@ import "./style.css";
 import { UI } from "./ui";
 import { Game } from "./game";
 import { loadEnemyAssets } from "./enemy-animation";
+import { loadAgentAssets } from "./agent-assets";
 import { loadSceneryAssets } from "./scenery-sprites";
 const root = document.querySelector<HTMLDivElement>("#interface")!;
 async function start() {
   let loadingAssets = true,
     failed = false,
     enemies = 0,
-    scenery = 0;
+    scenery = 0,
+    agents = 0;
   const progress = () => {
     if (failed) return;
-    root.innerHTML = `<div class="modal-shade"><section class="modal"><div class="eyebrow">G.M.S. / PREPARAÇÃO</div><h2>Carregando a Mata Viva</h2><p>Preparando cenário e criaturas · ${enemies + scenery} / 6</p><progress value="${enemies + scenery}" max="6" aria-label="Carregando sprites"></progress></section></div>`;
+    root.innerHTML = `<div class="modal-shade"><section class="modal"><div class="eyebrow">G.M.S. / PREPARAÇÃO</div><h2>Carregando a Mata Viva</h2><p>Preparando cenário e criaturas · ${enemies + scenery + agents} / 9</p><progress value="${enemies + scenery + agents}" max="9" aria-label="Carregando sprites"></progress></section></div>`;
   };
   try {
     progress();
-    const [assets, mapAssets] = await Promise.all([
+    const [assets, mapAssets, agentAssets] = await Promise.all([
       loadEnemyAssets((n) => {
         enemies = n;
         progress();
@@ -24,12 +26,17 @@ async function start() {
         scenery++;
         progress();
       }),
+      loadAgentAssets(() => {
+        agents++;
+        progress();
+      }),
     ]);
     loadingAssets = false;
     const game = new Game(
       document.querySelector<HTMLCanvasElement>("#world")!,
       assets,
       mapAssets,
+      agentAssets,
     );
     new UI(game);
     if (import.meta.env.DEV && new URLSearchParams(location.search).has("test"))

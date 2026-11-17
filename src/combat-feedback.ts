@@ -151,6 +151,13 @@ export class CombatFeedback {
         (o.material as T.MeshBasicMaterial).color.set(0x9fd6be);
     });
   }
+  cancelSource(source: Point) {
+    this.signals = this.signals.filter((signal) => {
+      if (signal.source !== source) return true;
+      this.remove(signal);
+      return false;
+    });
+  }
   clear() {
     for (const signal of this.signals) this.remove(signal);
     this.signals = [];

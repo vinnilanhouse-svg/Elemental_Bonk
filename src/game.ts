@@ -2,7 +2,7 @@ import * as T from "three";
 import { CombatFeedback } from "./combat-feedback";
 import { stableDirection } from "./motion";
 import { nextWaypoint } from "./navigation";
-import { CFG, SKILLS, ENEMY_XP, type Skill } from "./config";
+import { CFG, ENEMY_XP, type Skill } from "./config";
 import {
   freshPlayer,
   canMove,
@@ -19,14 +19,29 @@ import { zoneAt, zoneStats, ZONES } from "./zones";
 import { World } from "./map";
 import { Camera } from "./camera";
 import { Input } from "./input";
-import { Animator, wolfAtlas } from "./animation";
+import { Animator } from "./animation";
 import { EnemyAnimator, type EnemyAsset } from "./enemy-animation";
 import { ENEMY_DEATH_DURATION } from "./enemy-animation-state";
 import { XP_DROP_TIME, xpDropHeight, xpFragment, xpLabelTexture } from "./xp";
+import {
+  CHARACTERS,
+  SPECIES_SKILLS,
+  skillFor,
+  type Species,
+  type DamageType,
+} from "./species";
+import type { AgentAsset } from "./agent-assets";
+import { poison, poisonTick, petrify } from "./species-effects";
 import { Audio } from "./audio";
 import { load, store } from "./save";
 import { targetsInArc } from "./combat";
-import { autoSkillReady, avoidsDamage } from "./skills";
+import {
+  autoSkillReady,
+  avoidsDamage,
+  mitigatedDamage,
+  immobilizationRate,
+  movementSpeed,
+} from "./skills";
 import {
   rollChoices,
   applyChoice,
@@ -43,11 +58,38 @@ export class Game {
   save = load();
   renderer: T.WebGLRenderer;
   player = freshPlayer();
+  selectedSpecies: Species = "wolf";
   hero: T.Sprite;
   collector: T.Mesh;
   anim: Animator;
   enemies: Enemy[] = [];
   projectiles: Projectile[] = [];
+  bolts: {
+    x: number;
+    z: number;
+    vx: number;
+    vz: number;
+    damage: number;
+    life: number;
+    mesh: T.Mesh;
+  }[] = [];
+  traps: {
+    x: number;
+    z: number;
+    life: number;
+    arm: number;
+    duration: number;
+    mesh: T.Mesh;
+  }[] = [];
+  vortices: {
+    x: number;
+    z: number;
+    life: number;
+    damage: number;
+    radius: number;
+    tick: number;
+    mesh: T.Mesh;
+  }[] = [];
   gems: Gem[] = [];
   xpLabel = xpLabelTexture();
   xpFeedback = 0;
@@ -66,9 +108,18 @@ export class Game {
   scent = 0;
   attackAnim = 0;
   attackDuration = 0.3;
+  gaze?: { target: Enemy; time: number; duration: number };
   howl = 0;
   heading: Point = { x: 0, z: 1 };
-  cooldowns: Record<Skill, number> = { q: 0, e: 0, r: 0, " ": 0 };
+  cooldowns: Record<Skill, number> = {
+    q: 0,
+    e: 0,
+    r: 0,
+    " ": 0,
+    trap: 0,
+    mobility: 0,
+    defense: 0,
+  };
   levels: Record<string, number> = {};
   offerHistory: string[][] = [];
   bossSpawned = false;
@@ -85,6 +136,7 @@ export class Game {
     canvas: HTMLCanvasElement,
     public enemyAssets: EnemyAsset[],
     sceneryAssets: SceneryAsset[],
+    public agentAssets: Record<Species, AgentAsset>,
   ) {
     this.world = new World(sceneryAssets);
     this.feedback = new CombatFeedback(this.world.scene);
@@ -114,7 +166,7 @@ export class Game {
     );
     this.collector.rotation.x = -Math.PI / 2;
     this.world.scene.add(this.collector);
-    this.anim = new Animator(this.hero, wolfAtlas());
+    this.anim = new Animator(this.hero, agentAssets.wolf);
     this.resize();
     this.camera.follow(0, 0, 4, 0, true);
     this.audio.volume = this.save.volume;
@@ -151,6 +203,7 @@ export class Game {
     this.renderer.shadowMap.enabled = this.save.quality === "alta";
   }
   clear() {
+    this.gaze = undefined;
     this.feedback.clear();
     this.world.occlusion.reset();
     for (const e of new Set([...this.enemies, ...this.corpses])) {
@@ -158,18 +211,30 @@ export class Game {
       e.anim.dispose();
     }
     this.corpses = [];
-    for (const a of [...this.projectiles, ...this.gems, ...this.effects]) {
+    for (const a of [
+      ...this.projectiles,
+      ...this.bolts,
+      ...this.vortices,
+      ...this.traps,
+      ...this.gems,
+      ...this.effects,
+    ]) {
       this.world.scene.remove(a.mesh);
       this.disposeTransient(a.mesh);
     }
     this.enemies = [];
     this.projectiles = [];
+    this.bolts = [];
+    this.vortices = [];
+    this.traps = [];
     this.gems = [];
     this.effects = [];
   }
   start() {
     this.clear();
-    this.player = freshPlayer();
+    this.player = freshPlayer(this.selectedSpecies);
+    this.anim.texture.dispose();
+    this.anim = new Animator(this.hero, this.agentAssets[this.selectedSpecies]);
     this.time = 0;
     this.currentRegion = 1;
     this.spawnClock = 1;
@@ -184,9 +249,23 @@ export class Game {
     this.attackAnim = 0;
     this.attackDuration = 0.3;
     this.howl = 0;
+    this.gaze = undefined;
     this.heading = { x: 0, z: 1 };
-    this.cooldowns = { q: 0, e: 0, r: 0, " ": 0 };
-    this.levels = {};
+    this.cooldowns = {
+      q: 0,
+      e: 0,
+      r: 0,
+      " ": 0,
+      trap: 0,
+      mobility: 0,
+      defense: 0,
+    };
+    this.levels =
+      this.selectedSpecies === "gorgon"
+        ? { "gorgon-scales": 1 }
+        : this.selectedSpecies === "saci"
+          ? { "saci-escape": 1 }
+          : {};
     this.offerHistory = [];
     this.inventory = [];
     this.upgradeChoices = [];
@@ -202,6 +281,14 @@ export class Game {
     this.audio.volume = this.save.volume;
     this.camera.follow(0, 0, 4, 0, true);
     this.message("OPERAÇÃO INICIADA · Contenha a anomalia");
+    this.onUI();
+  }
+  selectSpecies(species: Species) {
+    if (this.phase !== "menu" || !(species in CHARACTERS)) return;
+    this.selectedSpecies = species;
+    this.player = freshPlayer(species);
+    this.anim.texture.dispose();
+    this.anim = new Animator(this.hero, this.agentAssets[species]);
     this.onUI();
   }
   pause() {
@@ -246,10 +333,14 @@ export class Game {
   }
   private activateSkill(key: Skill, target: Enemy) {
     const p = this.player,
-      s = SKILLS[key],
+      s = skillFor(p, key)!,
       power = 1 + p.skillPower[key];
     p.essence -= s.cost;
     this.cooldowns[key] = s.cooldown * p.cooldown;
+    if (p.species !== "wolf") {
+      this.activateSpeciesSkill(key, target, s, power);
+      return;
+    }
     if (key === "q") {
       const heading = normalize(target.x - p.x, target.z - p.z);
       if (this.attackAnim <= 0) this.heading = heading;
@@ -291,9 +382,293 @@ export class Game {
       }
     }
   }
+  private activateSpeciesSkill(
+    key: Skill,
+    target: Enemy,
+    s: import("./species").SkillDef,
+    power: number,
+  ) {
+    const p = this.player,
+      heading = normalize(target.x - p.x, target.z - p.z);
+    this.howl = 0.35;
+    if (this.attackAnim <= 0) this.heading = heading;
+    if (p.species === "gorgon") {
+      if (key === "q") {
+        this.damage(target, s.damage * power);
+        if (!target.dead) poison(target, 8 * power, s.duration);
+        this.effect(target.x, target.z, 0xb5df69, 0.9, 0.5, 1);
+      }
+      if (key === "e") {
+        this.gaze = { target, time: 1.2, duration: s.duration * power };
+        this.feedback.emit(
+          p,
+          heading,
+          distance(p, target),
+          "player",
+          "windup",
+          1.2,
+          "line",
+        );
+      }
+      if (key === "r")
+        for (const enemy of this.enemies.filter(
+          (e) => !e.dead && distance(p, e) <= s.range,
+        )) {
+          if (enemy.kind === 3) enemy.slow = Math.max(enemy.slow, 1.5);
+          else {
+            petrify(enemy, s.duration * power);
+            this.feedback.cancelSource(enemy);
+          }
+          this.effect(enemy.x, enemy.z, 0xc6c9ac, 0.8, 0.5, 1);
+        }
+    } else {
+      if (key === "r") {
+        if (this.vortices.length >= 3) {
+          const old = this.vortices.shift()!;
+          this.world.scene.remove(old.mesh);
+          this.disposeTransient(old.mesh);
+        }
+        const radius = s.range,
+          mesh = new T.Mesh(
+            new T.RingGeometry(radius * 0.83, radius, 32, 1, 0, 5.6),
+            new T.MeshBasicMaterial({
+              color: 0x94e1dc,
+              transparent: true,
+              opacity: 0.65,
+              side: T.DoubleSide,
+              depthWrite: false,
+            }),
+          );
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(p.x, heightAt(p.x, p.z) + 0.1, p.z);
+        for (let i = 1; i <= 4; i++) {
+          const r = 0.7 + i * 0.3,
+            ring = new T.Mesh(
+              new T.RingGeometry(r - 0.07, r, 24, 1, i * 0.8, 4.8),
+              new T.MeshBasicMaterial({
+                color: 0xbcefe1,
+                transparent: true,
+                opacity: 0.55,
+                side: T.DoubleSide,
+                depthWrite: false,
+              }),
+            );
+          ring.position.z = -i * 0.4;
+          mesh.add(ring);
+        }
+        this.world.scene.add(mesh);
+        this.vortices.push({
+          x: p.x,
+          z: p.z,
+          life: s.duration * power,
+          damage: s.damage * power,
+          radius,
+          tick: 0.25,
+          mesh,
+        });
+      }
+      if (key === "trap") {
+        if (this.traps.length >= 4) {
+          const old = this.traps.shift()!;
+          this.world.scene.remove(old.mesh);
+          this.disposeTransient(old.mesh);
+        }
+        const mesh = new T.Mesh(
+          new T.RingGeometry(1.25, 1.45, 12),
+          new T.MeshBasicMaterial({
+            color: 0xa6bf75,
+            transparent: true,
+            opacity: 0.65,
+            side: T.DoubleSide,
+            depthWrite: false,
+          }),
+        );
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(p.x, heightAt(p.x, p.z) + 0.07, p.z);
+        this.world.scene.add(mesh);
+        this.traps.push({
+          x: p.x,
+          z: p.z,
+          life: 12,
+          arm: 0.3,
+          duration: s.duration * power,
+          mesh,
+        });
+      }
+      if (key === "mobility") {
+        p.mobilityTime = s.duration * power;
+        this.effect(p.x, p.z, 0xc1e9ab, 1, 0.5, 2);
+      }
+      if (key === "e") {
+        const direction = this.input.direction();
+        move(
+          p,
+          direction.x * Math.min(4.5, 2.5 * power),
+          direction.z * Math.min(4.5, 2.5 * power),
+          this.world.obstacles,
+        );
+        this.invuln = Math.max(this.invuln, s.duration * power);
+        p.immobilized = 0;
+        this.effect(p.x, p.z, 0xc9eee1, 0.7, 0.45, 2);
+      }
+      if (key === "q") {
+        for (const enemy of targetsInArc(this.enemies, p, heading, s.range)) {
+          this.damage(enemy, s.damage * power);
+          move(enemy, heading.x * 3, heading.z * 3, this.world.obstacles);
+          enemy.slow = 3;
+          enemy.windup = 0;
+          enemy.action = 0;
+          enemy.cooldown = Math.max(enemy.cooldown, 0.6);
+          this.feedback.cancelSource(enemy);
+        }
+        for (let i = 1; i <= 5; i++)
+          this.effect(
+            p.x + heading.x * i,
+            p.z + heading.z * i,
+            0xb3e5e0,
+            0.4 + i * 0.2,
+            0.4,
+            1,
+          );
+      }
+    }
+  }
+  private shootWind() {
+    if (this.bolts.length >= 32) return;
+    const mesh = new T.Mesh(
+      new T.IcosahedronGeometry(0.17, 0),
+      new T.MeshBasicMaterial({ color: 0xd6f5e8 }),
+    );
+    this.world.scene.add(mesh);
+    this.bolts.push({
+      x: this.player.x,
+      z: this.player.z,
+      vx: this.attackHeading.x * 11,
+      vz: this.attackHeading.z * 11,
+      damage: this.player.damage,
+      life: this.player.range / 11,
+      mesh,
+    });
+  }
+  private updateSpeciesEffects(dt: number) {
+    if (this.gaze) {
+      const gaze = this.gaze,
+        d = this.input.direction();
+      if (
+        gaze.target.dead ||
+        distance(this.player, gaze.target) >
+          skillFor(this.player, "e")!.range ||
+        d.x ||
+        d.z
+      ) {
+        this.feedback.cancelSource(this.player);
+        this.gaze = undefined;
+      } else {
+        gaze.time -= dt;
+        if (gaze.time <= 0) {
+          petrify(gaze.target, gaze.duration);
+          this.feedback.cancelSource(gaze.target);
+          this.effect(gaze.target.x, gaze.target.z, 0xc6c9ac, 1, 0.5, 1);
+          this.feedback.cancelSource(this.player);
+          this.gaze = undefined;
+        }
+      }
+    }
+    for (const v of this.vortices) {
+      v.x = this.player.x;
+      v.z = this.player.z;
+      v.mesh.position.set(v.x, heightAt(v.x, v.z) + 0.1, v.z);
+      const active = Math.min(dt, Math.max(0, v.life));
+      v.life -= dt;
+      v.tick -= dt;
+      v.mesh.rotation.z += dt * 3;
+      for (const enemy of this.enemies)
+        if (!enemy.dead && distance(v, enemy) < v.radius) {
+          const direction = normalize(v.x - enemy.x, v.z - enemy.z);
+          if (enemy.rooted <= 0 && enemy.petrified <= 0)
+            move(
+              enemy,
+              direction.x * dt,
+              direction.z * dt,
+              this.world.obstacles,
+            );
+          enemy.slow = Math.max(enemy.slow, 0.35);
+          enemy.disoriented = Math.max(enemy.disoriented, 1.2);
+          this.damage(enemy, v.damage * active, false);
+        }
+      if (v.tick <= 0) v.tick += 0.25;
+    }
+    this.vortices = this.vortices.filter((v) => {
+      if (v.life > 0) return true;
+      this.world.scene.remove(v.mesh);
+      this.disposeTransient(v.mesh);
+      return false;
+    });
+    for (const trap of this.traps) {
+      trap.life -= dt;
+      trap.arm -= dt;
+      if (trap.arm <= 0) {
+        const enemy = this.enemies.find(
+          (e) => !e.dead && distance(e, trap) < 1.6,
+        );
+        if (enemy) {
+          enemy.rooted = Math.max(
+            enemy.rooted,
+            Math.min(trap.duration, enemy.kind === 3 ? 0.9 : 5),
+          );
+          trap.life = 0;
+          this.effect(enemy.x, enemy.z, 0xa7bd78, 1, 0.5, 1);
+        }
+      }
+    }
+    this.traps = this.traps.filter((t) => {
+      if (t.life > 0) return true;
+      this.world.scene.remove(t.mesh);
+      this.disposeTransient(t.mesh);
+      return false;
+    });
+    for (const b of this.bolts) {
+      b.life -= dt;
+      b.x += b.vx * dt;
+      b.z += b.vz * dt;
+      const target = this.enemies.find((e) => !e.dead && distance(b, e) < 0.8);
+      if (target) {
+        this.damage(target, b.damage);
+        b.life = 0;
+      }
+      if (this.world.obstacles.some((o) => distance(o, b) < o.r + 0.1))
+        b.life = 0;
+      b.mesh.position.set(b.x, heightAt(b.x, b.z) + 0.8, b.z);
+    }
+    this.bolts = this.bolts.filter((b) => {
+      if (b.life > 0) return true;
+      this.world.scene.remove(b.mesh);
+      this.disposeTransient(b.mesh);
+      return false;
+    });
+  }
   private autoSkills() {
-    for (const key of Object.keys(SKILLS) as Skill[]) {
+    for (const key of Object.keys(
+      SPECIES_SKILLS[this.player.species],
+    ) as Skill[]) {
       if (!autoSkillReady(key, this.player, this.cooldowns[key], 0)) continue;
+      if (this.player.species === "gorgon" && key === "e") {
+        const d = this.input.direction();
+        if (this.gaze || d.x || d.z) continue;
+      }
+      if (
+        this.player.species === "saci" &&
+        (key === "e" || key === "mobility")
+      ) {
+        const d = this.input.direction();
+        if (!d.x && !d.z) continue;
+        if (key === "e") {
+          const probe = { x: this.player.x, z: this.player.z },
+            length = Math.min(4.5, 2.5 * (1 + this.player.skillPower.e));
+          move(probe, d.x * length, d.z * length, this.world.obstacles);
+          if (distance(probe, this.player) < 0.2) continue;
+        }
+      }
       const target = this.enemies
         .filter((e) => !e.dead)
         .sort((a, b) => distance(this.player, a) - distance(this.player, b))[0];
@@ -369,6 +744,12 @@ export class Game {
       hit: 0,
       mesh,
       dead: false,
+      poisonTime: 0,
+      poisonDps: 0,
+      petrified: 0,
+      rooted: 0,
+      disoriented: 0,
+      attacks: 0,
       anim,
       facing: normalize(this.player.x - p.x, this.player.z - p.z),
       action: 0,
@@ -379,11 +760,13 @@ export class Game {
     this.enemies.push(enemy);
     if (kind === 3) this.boss = enemy;
   }
-  damage(e: Enemy, amount: number) {
+  damage(e: Enemy, amount: number, flash = true) {
     if (e.dead) return;
     e.hp -= amount;
-    e.hit = 0.16;
-    this.effect(e.x, e.z, 0xf1da9b, 0.45, 0.15, 1);
+    if (flash) {
+      e.hit = 0.16;
+      this.effect(e.x, e.z, 0xf1da9b, 0.45, 0.15, 1);
+    }
     if (e.hp <= 0) {
       e.dead = true;
       this.player.kills++;
@@ -413,22 +796,64 @@ export class Game {
       if (e.kind === 3) this.finish(true);
     }
   }
-  hurt(amount: number) {
-    if (this.invuln > 0) return;
+  hurt(amount: number, type: DamageType = "blunt") {
+    if (this.invuln > 0) return false;
     if (avoidsDamage(this.player)) {
       this.evadeFeedback = 0.5;
       this.feedback.evade(this.player);
-      return;
+      return false;
+    }
+    if (this.gaze) this.feedback.cancelSource(this.player);
+    this.gaze = undefined;
+    if (
+      this.player.species === "gorgon" &&
+      this.player.skills.defense > 0 &&
+      this.cooldowns.defense <= 0 &&
+      amount >= this.player.maxHp * 0.18
+    ) {
+      amount *= Math.max(0.15, 0.35 - this.player.skillPower.defense * 0.1);
+      this.cooldowns.defense =
+        skillFor(this.player, "defense")!.cooldown * this.player.cooldown;
+      this.effect(this.player.x, this.player.z, 0xbacf98, 1.1, 0.8, 0.2);
+      this.shedSkin();
+      this.message("É TIPO TROCAR DE ROUPA · Pele descartada");
     }
     this.player.hp = Math.max(
       0,
-      this.player.hp - amount * (1 - this.player.armor),
+      this.player.hp - mitigatedDamage(this.player, amount, type),
     );
     this.invuln = CFG.invulnerability;
     this.hurtTime = 0.18;
     this.audio.play("hurt");
     if (this.save.shake) this.camera.position.x += 0.18;
     if (this.player.hp <= 0) this.finish(false);
+    return true;
+  }
+  private shedSkin() {
+    const texture = this.anim.texture.clone();
+    texture.needsUpdate = true;
+    const mesh = new T.Mesh(
+      new T.PlaneGeometry(this.hero.scale.x, this.hero.scale.y),
+      new T.MeshBasicMaterial({
+        map: texture,
+        color: 0xd3daba,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false,
+        alphaTest: 0.4,
+        side: T.DoubleSide,
+      }),
+    );
+    mesh.userData.ownedTexture = texture;
+    mesh.quaternion.copy(this.camera.quaternion);
+    mesh.position.set(
+      this.player.x,
+      heightAt(this.player.x, this.player.z) +
+        this.hero.scale.y * (0.5 - this.hero.center.y),
+      this.player.z,
+    );
+    this.world.scene.add(mesh);
+    this.effects.push({ mesh, life: 1.2, max: 1.2, grow: 0 });
   }
   shoot(e: Enemy, angle: number) {
     if (this.projectiles.length > 100) return;
@@ -444,6 +869,7 @@ export class Game {
       vz: Math.sin(angle) * 5,
       life: 5,
       damage: (e.kind === 3 ? 18 : 12) * e.damageScale,
+      damageType: e.kind === 3 ? "piercing" : "arcane",
       mesh,
     });
   }
@@ -510,14 +936,17 @@ export class Game {
     this.scent = Math.max(0, this.scent - dt);
     this.howl = Math.max(0, this.howl - dt);
     this.attackAnim = Math.max(0, this.attackAnim - dt);
-    for (const k of Object.keys(SKILLS) as Skill[])
+    for (const k of Object.keys(SPECIES_SKILLS[this.player.species]) as Skill[])
       this.cooldowns[k] = Math.max(0, this.cooldowns[k] - dt);
     p.essence = Math.min(p.maxEssence, p.essence + p.essenceRegen * dt);
     p.hp = Math.min(p.maxHp, p.hp + p.recovery * dt);
+    p.immobilized = Math.max(0, p.immobilized - dt * immobilizationRate(p));
+    p.mobilityTime = Math.max(0, p.mobilityTime - dt);
     const dir = this.input.direction();
     if (dir.x || dir.z) {
       if (this.attackAnim <= 0) this.heading = dir;
-      move(p, dir.x * p.speed * dt, dir.z * p.speed * dt, this.world.obstacles);
+      const speed = movementSpeed(p, zoneAt(p.x, p.z).id === 4);
+      move(p, dir.x * speed * dt, dir.z * speed * dt, this.world.obstacles);
     }
     const region = zoneAt(p.x, p.z);
     if (region.id !== this.currentRegion) {
@@ -563,6 +992,7 @@ export class Game {
           this.message("CHEFE NAS RUÍNAS · Siga para a região 5");
       }
     }
+    this.updateSpeciesEffects(dt);
     this.autoSkills();
     if (this.phase !== "playing") return;
     this.attackClock -= dt;
@@ -574,7 +1004,7 @@ export class Game {
         this.heading = normalize(target.x - p.x, target.z - p.z);
         this.attackHeading = { ...this.heading };
         this.attackClock =
-          CFG.attackInterval /
+          CHARACTERS[p.species].interval /
           p.attack /
           (this.fury > 0 ? 1 + 0.65 * (1 + p.skillPower.r) : 1);
         this.attackDuration = Math.min(0.3, this.attackClock * 0.9);
@@ -584,16 +1014,18 @@ export class Game {
       }
     } // Impact occurs on the extended pose, once per animation.
     if (attackImpact) {
-      for (const e of targetsInArc(
-        this.enemies,
-        p,
-        this.attackHeading,
-        p.range,
-      ))
-        this.damage(
-          e,
-          p.damage * (this.fury > 0 ? 1 + 0.7 * (1 + p.skillPower.r) : 1),
-        );
+      if (p.species === "saci") this.shootWind();
+      else
+        for (const e of targetsInArc(
+          this.enemies,
+          p,
+          this.attackHeading,
+          p.range,
+        ))
+          this.damage(
+            e,
+            p.damage * (this.fury > 0 ? 1 + 0.7 * (1 + p.skillPower.r) : 1),
+          );
       this.feedback.emit(
         { ...p },
         this.attackHeading,
@@ -601,10 +1033,29 @@ export class Game {
         "player",
         "impact",
         0.24,
+        p.species === "saci" ? "line" : "cone",
       );
     }
     for (const e of this.enemies) {
       if (e.dead) continue;
+      const poisonBefore = e.poisonTime;
+      const poisonDamage = poisonTick(e, dt);
+      if (poisonDamage > 0) this.damage(e, poisonDamage, false);
+      if (e.dead) continue;
+      if (
+        Math.floor(poisonBefore) !== Math.floor(e.poisonTime) &&
+        e.poisonTime > 0
+      )
+        this.effect(e.x, e.z, 0xb8d775, 0.4, 0.25, 1);
+      e.petrified = Math.max(0, e.petrified - dt);
+      if (e.petrified > 0) {
+        e.anim.set("idle");
+        e.mesh.material.color.set(0xa6aaa0);
+        e.mesh.position.set(e.x, heightAt(e.x, e.z), e.z);
+        continue;
+      }
+      e.rooted = Math.max(0, e.rooted - dt);
+      e.disoriented = Math.max(0, e.disoriented - dt);
       const previousWindup = e.windup;
       const oldX = e.x,
         oldZ = e.z;
@@ -622,6 +1073,12 @@ export class Game {
         (d < 3 ? p.x : e.nav.x) - e.x,
         (d < 3 ? p.z : e.nav.z) - e.z,
       );
+      if (e.disoriented > 0) {
+        const a = e.id * 2.4 + this.time * 3;
+        v.x = Math.cos(a);
+        v.z = Math.sin(a);
+        e.cooldown = Math.max(e.cooldown, 0.25);
+      }
       if (e.windup > 0) {
         e.windup = Math.max(0, e.windup - dt);
         if (e.windup === 0) {
@@ -651,10 +1108,16 @@ export class Game {
             e.kind === 3
               ? d < 5
               : inCone(e, e.facing, p, e.kind === 2 ? 2.8 : 1.9)
-          )
-            this.hurt(
+          ) {
+            const hit = this.hurt(
               (e.kind === 3 ? 35 : e.kind === 2 ? 25 : 10) * e.damageScale,
+              e.kind === 0 ? "slashing" : "blunt",
             );
+            if (hit && e.kind === 0 && ++e.attacks % 3 === 0) {
+              p.immobilized = Math.max(p.immobilized, 1.6);
+              this.message("RAÍZES · Movimento preso temporariamente");
+            }
+          }
         }
       } else if (e.action > 0) {
         // Finish the visible strike before locomotion resumes.
@@ -664,7 +1127,8 @@ export class Game {
           e.cooldown = 2.2;
           e.attackMode = "ranged";
           e.facing = normalize(p.x - e.x, p.z - e.z);
-        } else if (d < 5) move(e, -v.x * dt, -v.z * dt, this.world.obstacles);
+        } else if (d < 5 && e.rooted <= 0)
+          move(e, -v.x * dt, -v.z * dt, this.world.obstacles);
       } else if (
         (e.kind === 3 || e.kind === 2) &&
         d < (e.kind === 3 ? 8 : 2.5) &&
@@ -681,8 +1145,8 @@ export class Game {
         if (d > 1.3) {
           move(
             e,
-            v.x * e.speed * dt * (e.slow > 0 ? 0.4 : 1),
-            v.z * e.speed * dt * (e.slow > 0 ? 0.4 : 1),
+            v.x * e.speed * dt * (e.rooted > 0 ? 0 : e.slow > 0 ? 0.4 : 1),
+            v.z * e.speed * dt * (e.rooted > 0 ? 0 : e.slow > 0 ? 0.4 : 1),
             this.world.obstacles,
             0.45,
           );
@@ -733,7 +1197,13 @@ export class Game {
       e.anim.update(dt);
       e.mesh.position.set(e.x, heightAt(e.x, e.z), e.z);
       e.mesh.material.color.set(
-        e.hit > 0 ? 0xffd6a3 : this.scent > 0 ? 0xc9ffb9 : 0xffffff,
+        e.hit > 0
+          ? 0xffd6a3
+          : e.poisonTime > 0
+            ? 0xb9d39a
+            : this.scent > 0
+              ? 0xc9ffb9
+              : 0xffffff,
       );
     }
     this.enemies = this.enemies.filter((e) => !e.dead);
@@ -743,7 +1213,7 @@ export class Game {
       b.z += b.vz * dt;
       b.mesh.position.set(b.x, heightAt(b.x, b.z) + 0.8, b.z);
       if (distance(b, p) < 0.7) {
-        this.hurt(b.damage);
+        this.hurt(b.damage, b.damageType);
         b.life = 0;
       }
       if (this.world.obstacles.some((o) => distance(o, b) < o.r)) b.life = 0;
@@ -796,8 +1266,7 @@ export class Game {
     this.effects = this.effects.filter((e) => {
       if (e.life > 0) return true;
       this.world.scene.remove(e.mesh);
-      e.mesh.geometry.dispose();
-      (e.mesh.material as T.Material).dispose();
+      this.disposeTransient(e.mesh);
       return false;
     });
     if (this.phase === "playing") this.checkLevel();
@@ -822,6 +1291,7 @@ export class Game {
   private disposeTransient(mesh: T.Mesh) {
     mesh.traverse((child) => {
       if (child instanceof T.Mesh) child.geometry.dispose();
+      if (child.userData.ownedTexture) child.userData.ownedTexture.dispose();
       if (child instanceof T.Mesh || child instanceof T.Sprite)
         (child.material as T.Material).dispose();
     });

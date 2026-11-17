@@ -1,4 +1,9 @@
 const paths: Record<string, string> = {
+  serpents:
+    '<path d="M4 18c-3-7 8-3 5-10S17 1 18 6s-6 4-5 8 7 7 8 1M6 18h12M15 5h.1M19 5l3-1"/>',
+  stone:
+    '<path d="m8 2 8 1 5 7-3 11H5L2 12Zm0 0 3 10-6 9m6-9 10-2m-10 2 7 9"/>',
+  trap: '<path d="m3 5 5 4 4-6 4 6 5-4v13H3ZM3 18l5-5 4 5 4-5 5 5"/>',
   hp: '<path d="m8 3-4 4v13h16V7l-4-4-4 4Z"/><path d="M9 4v8H5m10-8v8h4M8 16h8"/>',
   damage: '<path d="M7 3 3 20M14 3 9 20M21 3l-6 17"/>',
   attack:
@@ -29,6 +34,17 @@ const paths: Record<string, string> = {
 };
 export function rewardIcon(id: string) {
   const alias: Record<string, string> = {
+    "gorgon-poison": "serpents",
+    "gorgon-gaze": "faro",
+    "gorgon-medusa": "stone",
+    "gorgon-skin": "armor",
+    "gorgon-scales": "armor",
+    "saci-wind": "sopro",
+    "saci-blink": "esquiva",
+    "saci-tornado": "sopro",
+    "saci-escape": "speed",
+    "saci-trap": "trap",
+    "saci-mobility": "recovery",
     "veteran-hp": "hp",
     "veteran-damage": "damage",
     "veteran-essence": "essence",

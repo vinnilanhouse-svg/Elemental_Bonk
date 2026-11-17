@@ -1,3 +1,4 @@
+import { CHARACTERS, type Species } from "./species";
 import { CFG, type Skill } from "./config";
 export type Point = { x: number; z: number };
 export type Obstacle = Point & { r: number };
@@ -51,29 +52,50 @@ export const inCone = (
   );
 };
 export const xpFor = (level: number) => 12 + level * 7;
-export function freshPlayer() {
+export function freshPlayer(species: Species = "wolf") {
+  const c: { hp: number; speed: number; damage: number; range: number } =
+    CHARACTERS[species];
   return {
+    species,
     x: 0,
     z: 4,
-    hp: CFG.hp,
-    maxHp: CFG.hp,
+    hp: c.hp,
+    maxHp: c.hp,
     essence: CFG.essence,
     maxEssence: CFG.essence,
     level: 1,
     xp: 0,
     kills: 0,
-    damage: CFG.damage,
-    speed: CFG.speed,
+    damage: c.damage,
+    speed: c.speed,
     attack: 1,
     collect: CFG.collect,
     cooldown: 1,
-    range: CFG.range,
+    range: c.range,
     armor: 0,
     recovery: 0,
     essenceRegen: CFG.regen,
     xpBonus: 0,
-    skills: { q: 0, e: 0, r: 0, " ": 0 } as Record<Skill, number>,
-    skillPower: { q: 0, e: 0, r: 0, " ": 0 } as Record<Skill, number>,
+    immobilized: 0,
+    mobilityTime: 0,
+    skills: {
+      q: 0,
+      e: 0,
+      r: 0,
+      " ": species !== "wolf" ? 1 : 0,
+      trap: 0,
+      mobility: 0,
+      defense: 0,
+    } as Record<Skill, number>,
+    skillPower: {
+      q: 0,
+      e: 0,
+      r: 0,
+      " ": 0,
+      trap: 0,
+      mobility: 0,
+      defense: 0,
+    } as Record<Skill, number>,
   };
 }
 
